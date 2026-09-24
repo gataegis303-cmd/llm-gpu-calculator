@@ -4,7 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { MODELS, CATEGORY_FILTERS, modelCategory, type ModelCategory, type ModelSpec } from '@/data/models';
-import { searchOnlineModels, resolveOnlineModel, type OnlineModelHit } from '@/lib/modelRepo';
+import { searchOnlineModels, resolveOnlineModel, pipelineCategory, MODEL_TYPE_LABELS, type OnlineModelHit } from '@/lib/modelRepo';
 import { ChevronsUpDown, Loader2, CloudDownload, SearchX } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import InfoTip from '@/components/info-tip';
@@ -22,6 +22,7 @@ export default function ModelPicker({ selected, onSelect }: Props) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [cat, setCat] = useState<ModelCategory | 'all'>('all');
+  const [modality, setModality] = useState<string>('all');
   const [moeOnly, setMoeOnly] = useState(false);
   const [hits, setHits] = useState<OnlineModelHit[]>([]);
   const [searching, setSearching] = useState(false);
@@ -69,7 +70,8 @@ export default function ModelPicker({ selected, onSelect }: Props) {
   // 分类 + MoE + 关键词过滤，并按家族分组
   const { families, counts } = useMemo(() => {
     const pass = (m: ModelSpec) =>
-      (cat === 'all' || modelCategory(m) === cat) && (!moeOnly || m.isMoE) && matchText(m);
+      (cat === 'all' || modelCategory(m) === cat) && (!moeOnly || m.isMoE) && matchText(m) &&
+      (modality === 'all' || modality === 'llm');
     const filtered = MODELS.filter(pass);
     const counts: Record<string, number> = { all: MODELS.filter(matchText).length };
     for (const f of CATEGORY_FILTERS) {
@@ -82,10 +84,10 @@ export default function ModelPicker({ selected, onSelect }: Props) {
       byFamily.set(m.family, list);
     }
     return { families: [...byFamily.entries()], counts };
-  }, [query, cat, moeOnly]);
+  }, [query, cat, moeOnly, modality]);
 
   const builtinIds = new Set(MODELS.map((m) => m.id));
-  const onlineOnly = hits.filter((h) => !builtinIds.has(h.repoId));
+  const onlineOnly = hits.filter((h) => !builtinIds.has(h.repoId) && (modality === 'all' || pipelineCategory(h.pipelineTag) === modality));
 
   async function pickOnline(repoId: string) {
     setResolveError(null);
@@ -143,6 +145,28 @@ export default function ModelPicker({ selected, onSelect }: Props) {
                     <span className="ml-1 opacity-70">{counts[f.id] ?? 0}</span>
                   </button>
                 ))}
+                {hits.length > 0 && (
+                  Object.entries(MODEL_TYPE_LABELS).map(([key, label]) => {
+                    const n = hits.filter((h) => pipelineCategory(h.pipelineTag) === key).length;
+                    if (n === 0 && key !== 'llm') return null;
+                    return (
+                      <button
+                        key={'t-' + key}
+                        type="button"
+                        onClick={() => setModality(modality === key ? 'all' : key)}
+                        className={cn(
+                          'rounded-full border px-2 py-0.5 text-[11px] transition-colors',
+                          modality === key
+                            ? 'border-sky-500 bg-sky-500/15 text-sky-600 dark:text-sky-400'
+                            : 'border-border text-muted-foreground hover:bg-muted',
+                        )}
+                      >
+                        {label}
+                        <span className="ml-1 opacity-70">{n}</span>
+                      </button>
+                    );
+                  })
+                )}
                 <button
                   type="button"
                   onClick={() => setMoeOnly(!moeOnly)}

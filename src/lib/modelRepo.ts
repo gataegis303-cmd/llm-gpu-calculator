@@ -17,6 +17,30 @@ export interface OnlineModelHit {
   pipelineTag?: string;
 }
 
+/** 按 HF pipeline_tag 归纳的简化类型分类（不做全量映射，保持简单） */
+export const MODEL_TYPE_LABELS: Record<string, string> = {
+  llm: '大语言模型',
+  vlm: '多模态理解',
+  image: '生图模型',
+  video: '视频模型',
+  asr: '语音识别',
+  tts: '语音合成',
+  embedding: '向量模型',
+  other: '其他',
+};
+
+export function pipelineCategory(tag?: string): string {
+  if (!tag) return 'other';
+  if (tag === 'text-generation' || tag === 'text2text-generation') return 'llm';
+  if (['image-text-to-text', 'visual-question-answering', 'any-to-any'].includes(tag)) return 'vlm';
+  if (['text-to-image', 'image-to-image', 'unconditional-image-generation'].includes(tag)) return 'image';
+  if (['text-to-video', 'image-text-to-video', 'image-to-video', 'video-to-video'].includes(tag)) return 'video';
+  if (tag === 'automatic-speech-recognition') return 'asr';
+  if (['text-to-speech', 'text-to-audio', 'audio-to-audio'].includes(tag)) return 'tts';
+  if (['feature-extraction', 'sentence-similarity'].includes(tag)) return 'embedding';
+  return 'other';
+}
+
 const derivedCache = new Map<string, ModelSpec>();
 
 export async function searchOnlineModels(query: string, signal?: AbortSignal): Promise<OnlineModelHit[]> {
