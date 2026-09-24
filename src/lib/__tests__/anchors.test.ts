@@ -252,6 +252,36 @@ describe('live model derivation (modelRepo)', () => {
   });
 });
 
+describe('device fit (deployableModels)', () => {
+  it('Ryzen AI Max+ 395 (128GB) fits 70B-class at INT4, not at BF16', async () => {
+    const { deployableModels } = await import('../fit');
+    const gpu = gpuById('amd-ai-max-395-128')!;
+    const { full, quantized, usableGB } = deployableModels(gpu);
+    expect(usableGB).toBeCloseTo(128 * 0.75 - 1.2, 1); // 94.8GB（统一内存扣 1.2GB 运行时）
+    const names = quantized.map((r) => r.model.name);
+    expect(names.some((n) => n.includes('Qwen2.5-72B'))).toBe(true);
+    expect(names.some((n) => n.includes('Llama-3.1-70B'))).toBe(true);
+    // 72B BF16 ≈ 145GB > 94GB 可用 → 不在高精度档
+    expect(full.map((r) => r.model.name).some((n) => n.includes('Qwen2.5-72B'))).toBe(false);
+    // 7B BF16（~18GB）放得下
+    expect(full.map((r) => r.model.name).some((n) => n.includes('Qwen2.5-7B'))).toBe(true);
+  });
+
+  it('Mac mini M4 (16GB) fits only small models; M3 Ultra (512GB) fits DeepSeek-V3 at FP8', async () => {
+    const { deployableModels } = await import('../fit');
+    const mini = deployableModels(gpuById('m4-mini-16')!);
+    expect(mini.usableGB).toBeCloseTo(16 * 0.75 - 2, 1); // 10GB
+    expect(mini.quantized.length).toBeGreaterThan(0);
+    expect(mini.quantized.every((r) => r.totalGB <= 10)).toBe(true);
+    expect(mini.quantized.map((r) => r.model.name).some((n) => n.includes('Qwen2.5-7B'))).toBe(true);
+
+    const ultra = deployableModels(gpuById('m3-ultra-512')!);
+    // DeepSeek-V3 FP8 ≈ 671GB > 512×0.75−2=382GB → 不行；70B FP8 ≈ 70.6GB → 行
+    expect(ultra.full.map((r) => r.model.name).some((n) => n.includes('DeepSeek-V3'))).toBe(false);
+    expect(ultra.full.map((r) => r.model.name).some((n) => n.includes('Llama-3.1-70B'))).toBe(true);
+  });
+});
+
 describe('dataset integrity', () => {
   it('all 56 model entries are well-formed and categorizable', () => {
     expect(MODELS.length).toBeGreaterThanOrEqual(54);

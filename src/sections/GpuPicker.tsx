@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { GPUS, VENDOR_LABELS, type GpuSpec } from '@/data/gpus';
+import { deployableModels } from '@/lib/fit';
 import { ChevronsUpDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -92,11 +93,51 @@ export default function GpuPicker({ selected, onSelect }: Props) {
                 {selected.sourceUrl}
               </a>
             </div>
+            <DeployableList gpu={selected} />
           </>
         ) : (
           <div className="py-1 text-sm text-muted-foreground">尚未选择硬件</div>
         )}
       </CardContent>
     </Card>
+  );
+}
+
+/** 按设备反查：该设备（单并发、8K 上下文）能部署哪些内置模型。 */
+function DeployableList({ gpu }: { gpu: GpuSpec }) {
+  const { full, quantized, usableGB } = deployableModels(gpu);
+  const show = (list: typeof full, label: string) => {
+    if (list.length === 0) return null;
+    const top = list.slice(0, 10);
+    return (
+      <div className="mt-2">
+        <div className="text-xs font-medium text-muted-foreground">{label}（{list.length} 款）</div>
+        <div className="mt-1 flex flex-wrap gap-1">
+          {top.map((r) => (
+            <span key={r.model.id} title={`${r.precisionId.toUpperCase()} · 需 ${r.totalGB.toFixed(1)}GB · 剩余显存约可扩至 ${r.headroomConcurrency} 路并发`} className="rounded border border-border px-1.5 py-0.5 text-[11px] text-muted-foreground">
+              {r.model.name} <span className="text-[10px]">{r.model.paramsB >= 1000 ? `${(r.model.paramsB / 1000).toFixed(1)}T` : `${r.model.paramsB.toFixed(0)}B`}</span>
+            </span>
+          ))}
+          {list.length > top.length && <span className="px-1 py-0.5 text-[11px] text-muted-foreground">…等 {list.length} 款</span>}
+        </div>
+      </div>
+    );
+  };
+  return (
+    <details className="mt-3 rounded-md border bg-background/50 p-2.5">
+      <summary className="cursor-pointer text-xs font-medium">
+        这台设备能部署什么？（单并发 · 8K 上下文 · 可用 {usableGB.toFixed(0)}GB）
+      </summary>
+      <div className="mt-1">
+        {show(full, '高精度档（BF16 / 原生 FP8）')}
+        {show(quantized, '量化档（INT4 / Q4）')}
+        {full.length === 0 && quantized.length === 0 && (
+          <div className="mt-1 text-xs text-muted-foreground">当前内置库中没有能装下的模型（显存不足）</div>
+        )}
+        <p className="mt-2 text-[10px] text-muted-foreground">
+          口径：INT4/Q4 量化按激进开销档估算；「能部署」指权重+开销+单路 KV 放得下，实际吞吐受带宽限制。
+        </p>
+      </div>
+    </details>
   );
 }
