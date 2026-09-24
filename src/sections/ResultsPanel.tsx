@@ -15,7 +15,6 @@ interface Props {
   input: Omit<ScenarioInput, 'model' | 'gpu'>;
   caveat?: string;
   opts: Optimizations;
-  onOptsChange: (o: Optimizations) => void;
 }
 
 const BAND_LABEL: Record<string, BandMeta> = {
@@ -24,7 +23,7 @@ const BAND_LABEL: Record<string, BandMeta> = {
   aggressive: { name: '激进', hint: 'η=0.9 · 开销小', cls: 'text-emerald-600 dark:text-emerald-400', tip: '带宽效率 0.9、开销 2GB + 权重 5%：理论接近上限，仅在深度调优（量化 KV、chunked prefill 等）后可能达到。' },
 };
 
-export default function ResultsPanel({ model, gpu, input, caveat, opts, onOptsChange }: Props) {
+export default function ResultsPanel({ model, gpu, input, caveat, opts }: Props) {
   const bands = runAllBands({ model, gpu, ...input }, opts);
   const baseBands = runAllBands({ model, gpu, ...input }, OPTS_OFF);
   const typical = bands.typical;

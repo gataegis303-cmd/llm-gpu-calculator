@@ -97,7 +97,6 @@ export default function Home() {
             input={{ precisionId, concurrency, avgCtxTokens, inputTokens }}
             caveat={caveat}
             opts={opts}
-            onOptsChange={setOpts}
           />
         ) : (
           <div className="flex items-center justify-center rounded-lg border border-dashed p-8 text-sm text-muted-foreground">
