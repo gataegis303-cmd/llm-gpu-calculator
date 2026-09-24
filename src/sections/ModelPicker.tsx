@@ -1,9 +1,9 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
-import { MODELS, type ModelSpec } from '@/data/models';
+import { MODELS, CATEGORY_FILTERS, modelCategory, type ModelCategory, type ModelSpec } from '@/data/models';
 import { searchOnlineModels, resolveOnlineModel, type OnlineModelHit } from '@/lib/modelRepo';
 import { ChevronsUpDown, Loader2, CloudDownload, SearchX } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -21,6 +21,8 @@ function fmtParams(b: number): string {
 export default function ModelPicker({ selected, onSelect }: Props) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
+  const [cat, setCat] = useState<ModelCategory | 'all'>('all');
+  const [moeOnly, setMoeOnly] = useState(false);
   const [hits, setHits] = useState<OnlineModelHit[]>([]);
   const [searching, setSearching] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
@@ -58,13 +60,30 @@ export default function ModelPicker({ selected, onSelect }: Props) {
     return () => clearTimeout(t);
   }, [query, open]);
 
-  const builtin = MODELS.filter(
-    (m) =>
-      !query.trim() ||
-      m.name.toLowerCase().includes(query.toLowerCase()) ||
-      m.family.toLowerCase().includes(query.toLowerCase()) ||
-      m.org.toLowerCase().includes(query.toLowerCase()),
-  );
+  const matchText = (m: ModelSpec) =>
+    !query.trim() ||
+    m.name.toLowerCase().includes(query.toLowerCase()) ||
+    m.family.toLowerCase().includes(query.toLowerCase()) ||
+    m.org.toLowerCase().includes(query.toLowerCase());
+
+  // 分类 + MoE + 关键词过滤，并按家族分组
+  const { families, counts } = useMemo(() => {
+    const pass = (m: ModelSpec) =>
+      (cat === 'all' || modelCategory(m) === cat) && (!moeOnly || m.isMoE) && matchText(m);
+    const filtered = MODELS.filter(pass);
+    const counts: Record<string, number> = { all: MODELS.filter(matchText).length };
+    for (const f of CATEGORY_FILTERS) {
+      if (f.id !== 'all') counts[f.id] = MODELS.filter((m) => modelCategory(m) === f.id && matchText(m)).length;
+    }
+    const byFamily = new Map<string, ModelSpec[]>();
+    for (const m of filtered) {
+      const list = byFamily.get(m.family) ?? [];
+      list.push(m);
+      byFamily.set(m.family, list);
+    }
+    return { families: [...byFamily.entries()], counts };
+  }, [query, cat, moeOnly]);
+
   const builtinIds = new Set(MODELS.map((m) => m.id));
   const onlineOnly = hits.filter((h) => !builtinIds.has(h.repoId));
 
@@ -90,7 +109,7 @@ export default function ModelPicker({ selected, onSelect }: Props) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center gap-1.5 text-base">① 选择模型 <InfoTip text="支持搜索内置模型库与 HuggingFace 在线模型（实时查询 config.json 自动推导架构）；选中在线模型需网络，内置库可离线使用。" /></CardTitle>
+        <CardTitle className="flex items-center gap-1.5 text-base">① 选择模型 <InfoTip text="支持搜索内置模型库与 HuggingFace 在线模型（实时查询 config.json 自动推导架构）；选中在线模型需网络，内置库可离线使用。可用规模档位与 MoE 过滤快速定位。" /></CardTitle>
         <Popover open={open} onOpenChange={setOpen}>
           <PopoverTrigger asChild>
             <button
@@ -105,7 +124,40 @@ export default function ModelPicker({ selected, onSelect }: Props) {
               <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
             </button>
           </PopoverTrigger>
-          <PopoverContent className="w-[420px] p-0" align="start">
+          <PopoverContent className="w-[440px] p-0" align="start">
+            <div className="border-b px-2 py-2">
+              <div className="flex flex-wrap gap-1" role="group" aria-label="按规模分类">
+                {CATEGORY_FILTERS.map((f) => (
+                  <button
+                    key={f.id}
+                    type="button"
+                    onClick={() => setCat(f.id)}
+                    className={cn(
+                      'rounded-full border px-2 py-0.5 text-[11px] transition-colors',
+                      cat === f.id
+                        ? 'border-primary bg-primary text-primary-foreground'
+                        : 'border-border text-muted-foreground hover:bg-muted',
+                    )}
+                  >
+                    {f.label}
+                    <span className="ml-1 opacity-70">{counts[f.id] ?? 0}</span>
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => setMoeOnly(!moeOnly)}
+                  aria-pressed={moeOnly}
+                  className={cn(
+                    'rounded-full border px-2 py-0.5 text-[11px] transition-colors',
+                    moeOnly
+                      ? 'border-amber-500 bg-amber-500/15 text-amber-600 dark:text-amber-400'
+                      : 'border-border text-muted-foreground hover:bg-muted',
+                  )}
+                >
+                  仅看 MoE
+                </button>
+              </div>
+            </div>
             <Command shouldFilter={false}>
               <CommandInput placeholder="输入关键词，实时搜索 HuggingFace…" value={query} onValueChange={setQuery} />
               <CommandList className="max-h-80">
@@ -116,9 +168,9 @@ export default function ModelPicker({ selected, onSelect }: Props) {
                   </div>
                 </CommandEmpty>
 
-                {builtin.length > 0 && (
-                  <CommandGroup heading="内置模型库（离线快照）">
-                    {builtin.map((m) => (
+                {families.map(([family, models]) => (
+                  <CommandGroup key={family} heading={family}>
+                    {models.map((m) => (
                       <CommandItem
                         key={m.id}
                         value={m.id}
@@ -141,6 +193,9 @@ export default function ModelPicker({ selected, onSelect }: Props) {
                       </CommandItem>
                     ))}
                   </CommandGroup>
+                ))}
+                {families.length === 0 && (
+                  <div className="px-3 py-2 text-xs text-muted-foreground">内置库中无匹配（切换档位或清除过滤）</div>
                 )}
 
                 {(searching || onlineOnly.length > 0 || searchError) && (
