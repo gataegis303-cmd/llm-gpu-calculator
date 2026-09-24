@@ -280,6 +280,11 @@ describe('dataset integrity', () => {
       expect(g.bf16Tflops).toBeGreaterThan(0);
       expect(g.sourceUrl).toMatch(/^https?:\/\//);
     }
+    // GB10 (DGX Spark): datasheet 128GB LPDDR5x / 273GB/s
+    const gb10 = gpuById('gb10-dgx-spark')!;
+    expect(gb10.vramGB).toBe(128);
+    expect(gb10.memBandwidthGBs).toBe(273);
+    expect(gb10.gpusPerNode).toBe(1);
   });
 
   it('the two user-designated models are present and verified', () => {
@@ -287,5 +292,15 @@ describe('dataset integrity', () => {
     expect(glm53.status).toBe('verified');
     expect(v4flash.numHiddenLayers).toBe(43);
     expect(glm53.numHiddenLayers).toBe(45);
+  });
+
+  it('GB10 (DGX Spark) unified memory uses its usable fraction (~114GB)', async () => {
+    const gb10 = gpuById('gb10-spark')!;
+    expect(gb10.vramGB).toBe(128);
+    expect(gb10.memBandwidthGBs).toBe(273);
+    const { usableVramGB } = await import('../vram');
+    const usable = usableVramGB(gb10);
+    expect(usable).toBeGreaterThan(110);
+    expect(usable).toBeLessThan(118);
   });
 });

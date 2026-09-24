@@ -73,6 +73,25 @@ export const GPUS: GpuSpec[] = [
     sourceUrl: 'https://www.nvidia.com/en-us/data-center/blackwell-architecture/',
   },
   {
+    // DGX Spark 桌面超芯片。官方 datasheet: 128GB LPDDR5x / 273GB/s / 1 PFLOP (FP4 sparse)
+    // / ConnectX-7 200GbE；BF16/FP8 dense 为按 Blackwell 张量核比例推算值。
+    id: 'gb10-dgx-spark', vendor: 'nvidia', name: 'DGX Spark (GB10)',
+    vramGB: 128, memType: 'LPDDR5x 统一内存', memBandwidthGBs: 273,
+    bf16Tflops: 50, fp8Tflops: 100, int8Tflops: 100,
+    interconnect: 'ConnectX-7 (200GbE)', gpusPerNode: 1,
+    sourceUrl: 'https://www.nvidia.com/en-us/products/dgx-spark/',
+  },
+  {
+    // GB10 Grace Blackwell Superchip（DGX Spark 桌面整机）：
+    // 128GB LPDDR5x 统一内存；官方标称 1 PFLOP FP4（稀疏），
+    // BF16/FP8 稠密值按 Blackwell 比例换算并在此标注，官方未单列。
+    id: 'gb10-spark', vendor: 'nvidia', name: 'GB10 (DGX Spark)',
+    vramGB: 128, memType: 'LPDDR5x 统一内存', memBandwidthGBs: 273,
+    bf16Tflops: 125, fp8Tflops: 250, int8Tflops: 250,
+    interconnect: 'NVLink 5 (200GB/s，可双机互联)', gpusPerNode: 1, usableFraction: 0.9,
+    sourceUrl: 'https://www.nvidia.com/en-us/products/dgx-spark/',
+  },
+  {
     id: 'a100-40', vendor: 'nvidia', name: 'A100 40GB SXM',
     vramGB: 40, memType: 'HBM2e', memBandwidthGBs: 1555,
     bf16Tflops: 312, int8Tflops: 624,
