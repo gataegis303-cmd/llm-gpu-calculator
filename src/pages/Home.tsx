@@ -9,6 +9,7 @@ import { modelById } from '@/data/models';
 import { gpuById } from '@/data/gpus';
 import { PRESET_SCENARIOS, type PresetScenario } from '@/data/scenarios';
 import { OPTS_OFF, type Optimizations } from '@/lib/optimizations';
+import OptPanel from '@/sections/OptPanel';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 
@@ -75,6 +76,7 @@ export default function Home() {
       </div>
 
       <div className="mt-4 grid gap-4 lg:grid-cols-2">
+        <div className="space-y-4">
         <ConfigPicker
           model={model}
           precisionId={precisionId}
@@ -86,6 +88,8 @@ export default function Home() {
           inputTokens={inputTokens}
           onInputTokens={setInputTokens}
         />
+          <OptPanel gpu={gpu} opts={opts} onOptsChange={setOpts} />
+        </div>
         {ready ? (
           <ResultsPanel
             model={model}

@@ -2,10 +2,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { runAllBands, fmtGB, fmtTok, fmtMs, type ScenarioInput } from '@/lib/search';
 import { usableVramGB } from '@/lib/vram';
-import InfoTip from '@/components/info-tip';
-import { Switch } from '@/components/ui/switch';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { OPTS_OFF, anyOptEnabled, type Optimizations } from '@/lib/optimizations';
+import InfoTip from '@/components/info-tip';
 import type { ModelSpec } from '@/data/models';
 import type { GpuSpec } from '@/data/gpus';
 
@@ -143,61 +141,6 @@ export default function ResultsPanel({ model, gpu, input, caveat, opts, onOptsCh
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="flex items-center gap-1.5 text-base">⑤ 性能优化选项 <InfoTip text="推理服务常见优化：分块预填充改善并发下 TTFT（解码轻微上浮）；KV FP8 量化使 KV 字节减半；热缓存（内存）命中免重复预填充；冷缓存（SSD）扩展 KV 容量，检索延迟计入 TTFT。generic 模型无 KV，相关项不生效。" /></CardTitle>
-        </CardHeader>
-        <CardContent className="grid gap-2 sm:grid-cols-2">
-          <div className="flex items-center justify-between gap-2 rounded-md border p-2.5">
-            <div className="flex items-center gap-1 text-xs font-medium">分块预填充 <InfoTip text="预填充块与解码步交错：每步处理一个块而非阻塞解码，降低并发请求的 TTFT；解码步被分块挤占，TPOT 轻微上浮约 5%。" /></div>
-            <div className="flex items-center gap-2">
-              <Select value={String(opts.chunkSize)} onValueChange={(v) => onOptsChange({ ...opts, chunkSize: Number(v), chunkedPrefill: true })}>
-                <SelectTrigger className="h-8 w-28 text-xs"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {[512, 1024, 2048, 4096].map((n) => <SelectItem key={n} value={String(n)}>{n >= 1024 ? n / 1024 + 'K' : n} /块</SelectItem>)}
-                </SelectContent>
-              </Select>
-              <Switch checked={opts.chunkedPrefill} onCheckedChange={(v) => onOptsChange({ ...opts, chunkedPrefill: v })} aria-label="分块预填充" />
-            </div>
-          </div>
-          <div className="flex items-center justify-between gap-2 rounded-md border p-2.5">
-            <div className="flex items-center gap-1 text-xs font-medium">KV FP8 量化 <InfoTip text="KV 缓存按 FP8 存储：字节数减半，同显存可容纳双倍并发或上下文，解码读取 KV 变快；有轻微精度代价。" /></div>
-            <Switch checked={opts.kvFp8} onCheckedChange={(v) => onOptsChange({ ...opts, kvFp8: v })} aria-label="KV FP8 量化" />
-          </div>
-          <div className="flex items-center justify-between gap-2 rounded-md border p-2.5">
-            <div className="flex items-center gap-1 text-xs font-medium">热缓存（内存） <InfoTip text="频繁访问的 KV/前缀块驻留 CPU 内存：命中部分免重复预填充，TTFT 下降；同时作为 KV 卸载层扩展容量。命中率为工作负载经验值。" /></div>
-            <div className="flex items-center gap-2">
-              <Select value={String(opts.hotCache.sizeGB)} onValueChange={(v) => onOptsChange({ ...opts, hotCache: { ...opts.hotCache, sizeGB: Number(v), enabled: true } })}>
-                <SelectTrigger className="h-8 w-24 text-xs"><SelectValue /></SelectTrigger>
-                <SelectContent>{[64, 128, 256, 512, 1024].map((n) => <SelectItem key={n} value={String(n)}>{n >= 1024 ? '1TB' : n + 'GB'}</SelectItem>)}</SelectContent>
-              </Select>
-              <Select value={String(opts.hotCache.hitRate)} onValueChange={(v) => onOptsChange({ ...opts, hotCache: { ...opts.hotCache, hitRate: Number(v), enabled: true } })}>
-                <SelectTrigger className="h-8 w-16 text-xs"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="0.2">低</SelectItem><SelectItem value="0.4">中</SelectItem><SelectItem value="0.6">高</SelectItem>
-                </SelectContent>
-              </Select>
-              <Switch checked={opts.hotCache.enabled} onCheckedChange={(v) => onOptsChange({ ...opts, hotCache: { ...opts.hotCache, enabled: v } })} aria-label="热缓存" />
-            </div>
-          </div>
-          <div className="flex items-center justify-between gap-2 rounded-md border p-2.5">
-            <div className="flex items-center gap-1 text-xs font-medium">冷缓存（SSD） <InfoTip text="被驱逐的 KV 块持久化到 NVMe SSD：大幅扩展可服务上下文总量；命中冷层时按 SSD 带宽回读，延迟计入 TTFT。" /></div>
-            <div className="flex items-center gap-2">
-              <Select value={String(opts.coldCache.sizeGB)} onValueChange={(v) => onOptsChange({ ...opts, coldCache: { ...opts.coldCache, sizeGB: Number(v), enabled: true } })}>
-                <SelectTrigger className="h-8 w-24 text-xs"><SelectValue /></SelectTrigger>
-                <SelectContent>{[512, 1024, 2048, 4096].map((n) => <SelectItem key={n} value={String(n)}>{n >= 1024 ? n / 1024 + 'TB' : n + 'GB'}</SelectItem>)}</SelectContent>
-              </Select>
-              <Select value={String(opts.coldCache.ssdGBs)} onValueChange={(v) => onOptsChange({ ...opts, coldCache: { ...opts.coldCache, ssdGBs: Number(v), enabled: true } })}>
-                <SelectTrigger className="h-8 w-20 text-xs"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="3">SATA</SelectItem><SelectItem value="7">NVMe</SelectItem>
-                </SelectContent>
-              </Select>
-              <Switch checked={opts.coldCache.enabled} onCheckedChange={(v) => onOptsChange({ ...opts, coldCache: { ...opts.coldCache, enabled: v } })} aria-label="冷缓存" />
-            </div>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 }

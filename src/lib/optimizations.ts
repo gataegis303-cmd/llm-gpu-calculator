@@ -34,3 +34,28 @@ export function anyOptEnabled(o: Optimizations): boolean {
 export function tierOffloadGB(o: Optimizations): number {
   return (o.hotCache.enabled ? o.hotCache.sizeGB : 0) + (o.coldCache.enabled ? o.coldCache.sizeGB : 0);
 }
+
+export type OptSupport = 'yes' | 'int8' | 'limited' | 'no';
+
+export interface HardwareOptSupport {
+  /** KV FP8：fp8Tflops 有值 → 原生；仅 INT8 → int8；都没有 → no */
+  kvFp8: OptSupport;
+  /** 分块预填充：各平台推理栈均支持（vLLM/SGLang 默认开启，llama.cpp 由 ubatch 承担） */
+  chunked: OptSupport;
+  /** 热缓存（内存卸载层）：需要独立于显存的主机内存；统一内存设备为同一池 → no */
+  hotTier: OptSupport;
+  /** 冷缓存（SSD 持久层）：所有平台物理可行；统一内存设备工具链支持有限 → limited */
+  coldTier: OptSupport;
+}
+
+/** 按所选硬件判定各优化项的真实可用性。gpu 为 null 时按通用服务器给出。 */
+export function hardwareOptSupport(gpu: { fp8Tflops?: number; int8Tflops?: number; usableFraction?: number; vendor: string } | null): HardwareOptSupport {
+  const kvFp8: OptSupport = !gpu ? 'yes' : gpu.fp8Tflops ? 'yes' : gpu.int8Tflops ? 'int8' : 'no';
+  const unified = !!gpu?.usableFraction; // Apple / GB10 / AI Max：统一内存，无独立主机内存池
+  return {
+    kvFp8,
+    chunked: 'yes',
+    hotTier: unified ? 'no' : 'yes',
+    coldTier: unified ? 'limited' : 'yes',
+  };
+}
