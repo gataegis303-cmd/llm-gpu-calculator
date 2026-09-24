@@ -7,6 +7,7 @@ import { GPUS, VENDOR_LABELS, type GpuSpec } from '@/data/gpus';
 import { deployableModels } from '@/lib/fit';
 import { ChevronsUpDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import InfoTip from '@/components/info-tip';
 
 interface Props {
   selected: GpuSpec | null;
@@ -26,7 +27,7 @@ export default function GpuPicker({ selected, onSelect }: Props) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base">③ 选择硬件</CardTitle>
+        <CardTitle className="flex items-center gap-1.5 text-base">③ 选择硬件 <InfoTip text="内置 55+ 款设备的官方规格（显存 / 带宽 / 稠密算力 / 互联 / 每节点卡数）；统一内存设备（Apple、AMD AI Max、DGX Spark）按可用占比折算实际可分配显存。" /></CardTitle>
         <Popover open={open} onOpenChange={setOpen}>
           <PopoverTrigger asChild>
             <button

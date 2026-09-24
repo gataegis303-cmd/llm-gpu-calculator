@@ -2,8 +2,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { runAllBands, fmtGB, fmtTok, fmtMs, type ScenarioInput } from '@/lib/search';
 import { usableVramGB } from '@/lib/vram';
+import InfoTip from '@/components/info-tip';
 import type { ModelSpec } from '@/data/models';
 import type { GpuSpec } from '@/data/gpus';
+
+interface BandMeta { name: string; hint: string; cls: string; tip: string }
 
 interface Props {
   model: ModelSpec;
@@ -12,10 +15,10 @@ interface Props {
   caveat?: string;
 }
 
-const BAND_LABEL: Record<string, { name: string; hint: string; cls: string }> = {
-  conservative: { name: '保守', hint: 'η=0.7 · 开销大', cls: 'text-amber-600 dark:text-amber-400' },
-  typical: { name: '典型', hint: 'η=0.8', cls: 'text-primary' },
-  aggressive: { name: '激进', hint: 'η=0.9 · 开销小', cls: 'text-emerald-600 dark:text-emerald-400' },
+const BAND_LABEL: Record<string, BandMeta> = {
+  conservative: { name: '保守', hint: 'η=0.7 · 开销大', cls: 'text-amber-600 dark:text-amber-400', tip: '带宽效率按 0.7、运行时开销按 4GB + 权重 10% 计：为调度、碎片与峰值并发留足余量，适合采购预算决策。' },
+  typical: { name: '典型', hint: 'η=0.8', cls: 'text-primary', tip: '带宽效率 0.8、开销 3GB + 权重 7.5%：对应 vLLM / SGLang 常见实测水平，推荐以本档作为规划基准。' },
+  aggressive: { name: '激进', hint: 'η=0.9 · 开销小', cls: 'text-emerald-600 dark:text-emerald-400', tip: '带宽效率 0.9、开销 2GB + 权重 5%：理论接近上限，仅在深度调优（量化 KV、chunked prefill 等）后可能达到。' },
 };
 
 export default function ResultsPanel({ model, gpu, input, caveat }: Props) {
@@ -35,7 +38,7 @@ export default function ResultsPanel({ model, gpu, input, caveat }: Props) {
     <div className="space-y-4">
       <Card>
         <CardHeader className="pb-2">
-          <CardTitle className="text-base">④ 部署需求 — {model.name} @ {gpu.name}</CardTitle>
+          <CardTitle className="flex flex-wrap items-center gap-1.5 text-base">④ 部署需求 — {model.name} @ {gpu.name} <InfoTip text="屋顶线估算结果：在满足显存与延迟的前提下搜索的最少设备组合（TP 节点内并行 / PP 跨节点流水 / DP 副本）。三档对应不同效率与开销假设，均为估算值而非实测。" /></CardTitle>
           <p className="text-xs text-muted-foreground">
             典型方案：{typical.plan.tp} 路张量并行 × {typical.plan.pp} 级流水 × {typical.plan.dp} 数据副本
             （单副本 {typical.plan.devicesPerReplica} 卡，每副本承载 {typical.plan.replicaConcurrency} 路并发）
@@ -85,7 +88,7 @@ export default function ResultsPanel({ model, gpu, input, caveat }: Props) {
               return (
                 <div key={band} className="rounded-lg border p-3">
                   <div className="flex items-center justify-between">
-                    <span className={`text-xs font-medium ${meta.cls}`}>{meta.name}档</span>
+                    <span className={`flex items-center gap-1 text-xs font-medium ${meta.cls}`}>{meta.name}档 <InfoTip text={meta.tip} /></span>
                     <span className="text-[10px] text-muted-foreground">{meta.hint}</span>
                   </div>
                   <dl className="mt-2 space-y-1.5 text-xs">

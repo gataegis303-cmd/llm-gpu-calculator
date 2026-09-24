@@ -7,6 +7,7 @@ import { MODELS, type ModelSpec } from '@/data/models';
 import { searchOnlineModels, resolveOnlineModel, type OnlineModelHit } from '@/lib/modelRepo';
 import { ChevronsUpDown, Loader2, CloudDownload, SearchX } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import InfoTip from '@/components/info-tip';
 
 interface Props {
   selected: ModelSpec | null;
@@ -89,7 +90,7 @@ export default function ModelPicker({ selected, onSelect }: Props) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base">① 选择模型</CardTitle>
+        <CardTitle className="flex items-center gap-1.5 text-base">① 选择模型 <InfoTip text="支持搜索内置模型库与 HuggingFace 在线模型（实时查询 config.json 自动推导架构）；选中在线模型需网络，内置库可离线使用。" /></CardTitle>
         <Popover open={open} onOpenChange={setOpen}>
           <PopoverTrigger asChild>
             <button
