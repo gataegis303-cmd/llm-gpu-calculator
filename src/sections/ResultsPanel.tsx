@@ -36,16 +36,16 @@ export default function ResultsPanel({ model, gpu, input, caveat }: Props) {
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-base">④ 部署需求 — {model.name} @ {gpu.name}</CardTitle>
+          <p className="text-xs text-muted-foreground">
+            典型方案：{typical.plan.tp} 路张量并行 × {typical.plan.pp} 级流水 × {typical.plan.dp} 数据副本
+            （单副本 {typical.plan.devicesPerReplica} 卡，每副本承载 {typical.plan.replicaConcurrency} 路并发）
+          </p>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="rounded-lg border bg-muted/40 p-4">
             <div className="text-3xl font-semibold tracking-tight">
               {minDevices === maxDevices ? minDevices : `${minDevices}–${maxDevices}`}{' '}
               <span className="text-lg font-normal text-muted-foreground">张 {gpu.name}</span>
-            </div>
-            <div className="mt-1 text-xs text-muted-foreground">
-              典型方案：{typical.plan.tp} 路张量并行 × {typical.plan.pp} 级流水 × {typical.plan.dp} 数据副本
-              （单副本 {typical.plan.devicesPerReplica} 卡，每副本承载 {typical.plan.replicaConcurrency} 路并发）
             </div>
           </div>
 
