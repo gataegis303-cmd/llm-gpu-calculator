@@ -26,6 +26,8 @@ export interface SearchInput {
   avgCtxTokens: number;
   overheadFactor: number;
   overheadBaseGB: number;
+  /** 热缓存+冷缓存卸载的 KV 字节（GB）：这部分不占 GPU 显存 */
+  kvOffloadGB?: number;
 }
 
 function fitPlan(
@@ -34,12 +36,13 @@ function fitPlan(
   dp: number,
   input: SearchInput,
 ): ParallelPlan {
-  const { model, gpu, bytesPerParam, kvBytesPerToken, concurrency, avgCtxTokens, overheadFactor, overheadBaseGB } = input;
+  const { model, gpu, bytesPerParam, kvBytesPerToken, concurrency, avgCtxTokens, overheadFactor, overheadBaseGB, kvOffloadGB } = input;
 
   const totalWeightBytes = model.paramsB * 1e9 * bytesPerParam;
   const devicesPerReplica = tp * pp;
   const replicaConcurrency = Math.ceil(concurrency / Math.max(dp, 1));
-  const kvTotalBytes = replicaConcurrency * avgCtxTokens * kvBytesPerToken;
+  // 分层 KV：热/冷缓存卸载的部分不占 GPU 显存
+  const kvTotalBytes = Math.max(0, replicaConcurrency * avgCtxTokens * kvBytesPerToken - (kvOffloadGB ?? 0) * 1e9);
 
   // per-device: weight shard + KV slice + overhead share
   const weightPerDeviceGB = totalWeightBytes / devicesPerReplica / 1e9;

@@ -8,6 +8,7 @@ import type { GpuSpec } from '@/data/gpus';
 import { modelById } from '@/data/models';
 import { gpuById } from '@/data/gpus';
 import { PRESET_SCENARIOS, type PresetScenario } from '@/data/scenarios';
+import { OPTS_OFF, type Optimizations } from '@/lib/optimizations';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 
@@ -19,6 +20,7 @@ export default function Home() {
   const [concurrency, setConcurrency] = useState(10);
   const [inputTokens, setInputTokens] = useState(2048);
   const [caveat, setCaveat] = useState<string | undefined>(undefined);
+  const [opts, setOpts] = useState<Optimizations>(OPTS_OFF);
 
   function pickModel(m: ModelSpec) {
     setModel(m);
@@ -90,6 +92,8 @@ export default function Home() {
             gpu={gpu}
             input={{ precisionId, concurrency, avgCtxTokens, inputTokens }}
             caveat={caveat}
+            opts={opts}
+            onOptsChange={setOpts}
           />
         ) : (
           <div className="flex items-center justify-center rounded-lg border border-dashed p-8 text-sm text-muted-foreground">

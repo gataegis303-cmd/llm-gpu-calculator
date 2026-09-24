@@ -6,6 +6,7 @@ import type { GpuSpec } from '@/data/gpus';
 import { estimateVram, kvBytesPerToken as kvBytesPerTokenOf } from './vram';
 import { findMinimalPlan, type ParallelPlan } from './parallelism';
 import { estimateThroughput, type ThroughputResult } from './throughput';
+import { OPTS_OFF, tierOffloadGB, type Optimizations } from './optimizations';
 
 export type Band = 'conservative' | 'typical' | 'aggressive';
 
@@ -39,7 +40,7 @@ export interface ScenarioResult {
   config: BandConfig;
 }
 
-export function runScenario(input: ScenarioInput, band: Band): ScenarioResult {
+export function runScenario(input: ScenarioInput, band: Band, opts: Optimizations = OPTS_OFF): ScenarioResult {
   const { model, gpu, precisionId, concurrency, avgCtxTokens, inputTokens } = input;
   const config = BANDS[band];
   const prec = PRECISIONS[precisionId] ?? PRECISIONS.bf16;
@@ -59,6 +60,7 @@ export function runScenario(input: ScenarioInput, band: Band): ScenarioResult {
     precisionId,
     bytesPerParam: prec.bytesPerParam,
     kvBytesPerToken: kvBytesPerTokenOf(model, precisionId),
+    kvOffloadGB: tierOffloadGB(opts),
     concurrency,
     avgCtxTokens,
     overheadFactor: config.overheadFactor,
@@ -66,6 +68,12 @@ export function runScenario(input: ScenarioInput, band: Band): ScenarioResult {
   });
 
   const activeWeightBytes = model.activeParamsB * 1e9 * prec.bytesPerParam;
+  const effKvPerTok = kvBytesPerTokenOf(model, precisionId) * (opts.kvFp8 ? 0.5 : 1);
+  const kvTotalGB = (input.concurrency * input.avgCtxTokens * effKvPerTok) / 1e9;
+  const coldRetrieveMs =
+    opts.coldCache.enabled && kvTotalGB > opts.hotCache.sizeGB
+      ? (Math.min(opts.coldCache.sizeGB, kvTotalGB - opts.hotCache.sizeGB) / Math.max(opts.coldCache.ssdGBs, 1)) * 1000
+      : 0;
   const replicaGpus: GpuSpec[] = Array.from({ length: plan.devicesPerReplica }, () => gpu);
 
   const throughput = estimateThroughput({
@@ -77,17 +85,23 @@ export function runScenario(input: ScenarioInput, band: Band): ScenarioResult {
     eta: config.eta,
     computeUtil: config.computeUtil,
     activeWeightBytes,
-    kvBytesPerToken: kvBytesPerTokenOf(model, precisionId),
+    kvBytesPerToken: effKvPerTok,
+    opts: {
+      chunked: opts.chunkedPrefill,
+      chunkSize: opts.chunkSize,
+      hotHitRate: opts.hotCache.enabled ? opts.hotCache.hitRate : 0,
+      coldRetrieveMs,
+    },
   });
 
   return { band, plan, vram, throughput, config };
 }
 
-export function runAllBands(input: ScenarioInput): Record<Band, ScenarioResult> {
+export function runAllBands(input: ScenarioInput, opts: Optimizations = OPTS_OFF): Record<Band, ScenarioResult> {
   return {
-    conservative: runScenario(input, 'conservative'),
-    typical: runScenario(input, 'typical'),
-    aggressive: runScenario(input, 'aggressive'),
+    conservative: runScenario(input, 'conservative', opts),
+    typical: runScenario(input, 'typical', opts),
+    aggressive: runScenario(input, 'aggressive', opts),
   };
 }
 
