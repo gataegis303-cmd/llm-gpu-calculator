@@ -36,6 +36,9 @@ export default function ConfigPicker(p: Props) {
   const isCustom = !ctxOptions.includes(p.avgCtxTokens);
   const ctxValue = customCtx || isCustom ? 'custom' : String(p.avgCtxTokens);
 
+  // TTFT 固定档位：不超过当前平均上下文，当前值不在档位内时一并保留
+  const ttftOptions = [...new Set([128, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768, 65536].filter((n) => n <= p.avgCtxTokens).concat(p.inputTokens))].sort((a, b) => a - b);
+
   function clamp(n: number, min: number, max: number): number {
     return Math.min(max, Math.max(min, Number.isFinite(n) ? Math.round(n) : min));
   }
@@ -117,14 +120,16 @@ export default function ConfigPicker(p: Props) {
           </div>
           <div className="space-y-2">
             <div className="flex items-center gap-1"><Label>TTFT 测算输入长度</Label><InfoTip text="首字延迟（TTFT）测算所用的提示词长度：prefill 计算量随输入长度线性增长，典型对话约 512–4096，长文档场景可设更高。" /></div>
-            <Input
-              type="number"
-              min={128}
-              max={Math.max(p.avgCtxTokens, 1024)}
-              step={128}
-              value={p.inputTokens}
-              onChange={(e) => p.onInputTokens(clamp(Number(e.target.value), 128, Math.max(p.avgCtxTokens, 1024)))}
-            />
+            <Select value={String(p.inputTokens)} onValueChange={(v) => p.onInputTokens(Number(v))}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {ttftOptions.map((n) => (
+                  <SelectItem key={n} value={String(n)}>
+                    {n >= 1024 ? `${n / 1024}K (${n.toLocaleString()})` : `${n} tokens`}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </div>
       </CardContent>
