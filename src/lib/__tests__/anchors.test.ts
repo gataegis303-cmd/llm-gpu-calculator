@@ -256,7 +256,7 @@ describe('live model derivation (modelRepo)', () => {
     const spec = deriveModelSpec('netease-youdao/Confucius4-R2T2', {
       architectures: ['Qwen3ASRForConditionalGeneration'], model_type: 'qwen3_asr',
       thinker_config: {
-        audio_config: { depth: 32, hidden_size: 1280 },
+        audio_config: { encoder_layers: 24, d_model: 1024, encoder_ffn_dim: 4096 },
         text_config: {
           hidden_size: 2048, num_hidden_layers: 28, num_attention_heads: 16, num_key_value_heads: 8,
           head_dim: 128, vocab_size: 151936, max_position_embeddings: 65536,
@@ -265,9 +265,9 @@ describe('live model derivation (modelRepo)', () => {
       },
     }, '2026-09-24');
     expect(spec.kind).toBe('vlm');
-    // 文本塔 ≈ 1.7B + 音频塔 ViT-math ≈ 0.63B
-    expect(spec.paramsB).toBeGreaterThan(2.0);
-    expect(spec.paramsB).toBeLessThan(2.6);
+    // 文本塔 ≈ 1.72B + 音频塔 Whisper-math ≈ 0.19B（24L×1024d）
+    expect(spec.paramsB).toBeGreaterThan(1.8);
+    expect(spec.paramsB).toBeLessThan(2.1);
     expect(spec.numHiddenLayers).toBe(28);
     expect(kvBytesPerToken(spec, 'bf16')).toBe(2 * 28 * 8 * 128 * 2);
     expect(spec.contexts).toContain(65536);

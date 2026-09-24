@@ -80,8 +80,9 @@ const CTX_LADDER = [2048, 4096, 8192, 16384, 32768, 65536, 131072, 163840, 26214
 
 function visionTowerParams(v: Record<string, any> | undefined): number {
   if (!v) return 0;
-  const layers: number = v.depth ?? v.num_hidden_layers ?? 0;
-  const hidden: number = v.hidden_size ?? 0;
+  // 兼容三套命名：depth（Qwen-VL）、num_hidden_layers（CLIP/标准）、encoder_layers（Whisper 系音频塔）
+  const layers: number = v.depth ?? v.num_hidden_layers ?? v.encoder_layers ?? 0;
+  const hidden: number = v.hidden_size ?? v.d_model ?? 0;
   if (!layers || !hidden) return 0;
   const perLayer = 12 * hidden * hidden; // ViT: MHSA 4d² + MLP 8d²
   const ps = v.patch_size ?? 16;
