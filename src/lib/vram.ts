@@ -64,8 +64,12 @@ export function estimateVram(input: VramInput): VramBreakdown {
 
 /** Usable VRAM per device. */
 export function usableVramGB(gpu: GpuSpec): number {
+  if (gpu.usableFraction !== undefined) {
+    // 统一内存架构（Apple M 系列 / GB10）：按可用占比扣减
+    return gpu.vramGB * gpu.usableFraction - (gpu.vendor === 'apple' ? 2 : 1.2);
+  }
   if (gpu.vendor === 'apple') {
-    return gpu.vramGB * (gpu.usableFraction ?? 0.75) - 2; // OS reserve inside the usable slice
+    return gpu.vramGB * 0.75 - 2; // OS reserve inside the usable slice
   }
   return gpu.vramGB - 1.2; // CUDA/ROCm/CANN context + fragmentation reserve
 }

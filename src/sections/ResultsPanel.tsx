@@ -1,6 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { runAllBands, fmtGB, fmtTok, fmtMs, type ScenarioInput } from '@/lib/search';
+import { usableVramGB } from '@/lib/vram';
 import type { ModelSpec } from '@/data/models';
 import type { GpuSpec } from '@/data/gpus';
 
@@ -63,7 +64,7 @@ export default function ResultsPanel({ model, gpu, input, caveat }: Props) {
           <div>
             <div className="mb-1.5 flex items-center justify-between text-xs text-muted-foreground">
               <span>单卡显存构成（典型档）</span>
-              <span>{fmtGB(stack.totalGB)} GB / 可用 {gpu.vendor === 'apple' ? (gpu.vramGB * 0.75 - 2).toFixed(0) : (gpu.vramGB - 1.2).toFixed(1)} GB</span>
+              <span>{fmtGB(stack.totalGB)} GB / 可用 {usableVramGB(gpu).toFixed(1)} GB</span>
             </div>
             <div className="flex h-4 w-full overflow-hidden rounded-full bg-muted" role="img" aria-label={`显存构成：权重 ${wp.toFixed(0)}%，KV ${kp.toFixed(0)}%，开销 ${(100 - wp - kp).toFixed(0)}%`}>
               <div className="bg-primary" style={{ width: `${wp}%` }} title={`权重 ${fmtGB(stack.weightsGB)}GB`} />

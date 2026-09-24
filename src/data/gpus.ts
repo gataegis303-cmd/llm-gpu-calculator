@@ -78,7 +78,7 @@ export const GPUS: GpuSpec[] = [
     id: 'gb10-dgx-spark', vendor: 'nvidia', name: 'DGX Spark (GB10)',
     vramGB: 128, memType: 'LPDDR5x 统一内存', memBandwidthGBs: 273,
     bf16Tflops: 50, fp8Tflops: 100, int8Tflops: 100,
-    interconnect: 'ConnectX-7 (200GbE)', gpusPerNode: 1,
+    interconnect: 'ConnectX-7 (200GbE)', gpusPerNode: 1, usableFraction: 0.93,
     sourceUrl: 'https://www.nvidia.com/en-us/products/dgx-spark/',
   },
   {
