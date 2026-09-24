@@ -101,7 +101,14 @@ export function deriveModelSpec(
   today: string,
   checkpointBytes?: number,
 ): ModelSpec {
-  const c: Record<string, any> = cfg?.text_config ? { ...cfg, ...cfg.text_config } : cfg ?? {};
+  // 解包常见嵌套：text_config（Gemma/GLM/VLM）、thinker_config.text_config（Qwen-Omni/ASR）
+  let source: Record<string, any> | null = cfg;
+  if (cfg?.thinker_config?.text_config) {
+    source = { ...cfg, ...cfg.thinker_config, ...cfg.thinker_config.text_config };
+  } else if (cfg?.text_config) {
+    source = { ...cfg, ...cfg.text_config };
+  }
+  const c: Record<string, any> = source ?? {};
 
   const hidden: number = c.hidden_size;
   const layers: number = c.num_hidden_layers ?? c.num_layers;
@@ -111,7 +118,8 @@ export function deriveModelSpec(
   // ── LLM / VLM：标准 transformers 文本塔 ─────────────────────────────────
   if (hidden && layers && vocab) {
     const visionParams = cfg?.vision_config ? visionTowerParams(cfg.vision_config) : 0;
-    const kind: 'llm' | 'vlm' = visionParams > 0 ? 'vlm' : 'llm';
+    const audioParams = cfg?.thinker_config?.audio_config ? visionTowerParams(cfg.thinker_config.audio_config) : 0;
+    const kind: 'llm' | 'vlm' = visionParams + audioParams > 0 ? 'vlm' : 'llm';
 
     const heads: number = c.num_attention_heads ?? 32;
     const kvHeads: number = c.num_key_value_heads ?? c.multi_query_group_num ?? (c.multi_query_attention ? 1 : heads);
@@ -144,12 +152,12 @@ export function deriveModelSpec(
     params += attnPerLayer * layers;
     params += denseLayers * 3 * hidden * inter;
     if (isMoE) params += moeLayers * (numExperts + sharedCount) * 3 * hidden * (moeInter ?? inter);
-    params += visionParams;
+    params += visionParams + audioParams;
     const paramsB = Math.round((params / 1e9) * 100) / 100;
 
     const activeB = isMoE
       ? Math.round(((attnPerLayer * layers + denseLayers * 3 * hidden * inter + moeLayers * ((expertsPerTok ?? 1) + sharedCount) * 3 * hidden * (moeInter ?? inter)) / 1e9) * 10) / 10
-      : Math.round(((params - visionParams) / 1e9) * 100) / 100;
+      : Math.round(((params - visionParams - audioParams) / 1e9) * 100) / 100;
 
     const quantFmt = c.quantization_config?.fmt ?? cfg?.quantization_config?.fmt;
     const fp8Native = quantFmt === 'e4m3' || quantFmt === 'fp8';

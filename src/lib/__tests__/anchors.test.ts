@@ -250,6 +250,38 @@ describe('live model derivation (modelRepo)', () => {
     expect(spec.contexts).toEqual([]);
     expect(spec.precisions[0].id).toBe('bf16');
   });
+
+  it('unwraps thinker_config for Omni/ASR models (Qwen3-ASR style)', async () => {
+    const { deriveModelSpec } = await import('../modelRepo');
+    const spec = deriveModelSpec('netease-youdao/Confucius4-R2T2', {
+      architectures: ['Qwen3ASRForConditionalGeneration'], model_type: 'qwen3_asr',
+      thinker_config: {
+        audio_config: { depth: 32, hidden_size: 1280 },
+        text_config: {
+          hidden_size: 2048, num_hidden_layers: 28, num_attention_heads: 16, num_key_value_heads: 8,
+          head_dim: 128, vocab_size: 151936, max_position_embeddings: 65536,
+          intermediate_size: 6144, tie_word_embeddings: true,
+        },
+      },
+    }, '2026-09-24');
+    expect(spec.kind).toBe('vlm');
+    // 文本塔 ≈ 1.7B + 音频塔 ViT-math ≈ 0.63B
+    expect(spec.paramsB).toBeGreaterThan(2.0);
+    expect(spec.paramsB).toBeLessThan(2.6);
+    expect(spec.numHiddenLayers).toBe(28);
+    expect(kvBytesPerToken(spec, 'bf16')).toBe(2 * 28 * 8 * 128 * 2);
+    expect(spec.contexts).toContain(65536);
+    // 2B 级模型单张 128GB 设备即可部署
+    const { GPUS } = await import('@/data/gpus');
+    const gb10 = GPUS.find((g) => g.id === 'gb10-spark')!;
+    const { findMinimalPlan } = await import('../parallelism');
+    const plan = findMinimalPlan({
+      model: spec, gpu: gb10, precisionId: 'bf16', bytesPerParam: 2,
+      kvBytesPerToken: kvBytesPerToken(spec, 'bf16'),
+      concurrency: 10, avgCtxTokens: 65536, overheadFactor: 0.075, overheadBaseGB: 3,
+    });
+    expect(plan.totalDevices).toBe(1);
+  });
 });
 
 describe('device fit (deployableModels)', () => {

@@ -60,7 +60,7 @@ export default function ResultsPanel({ model, gpu, input, caveat }: Props) {
           )}
           {isVlm && (
             <div className="rounded-md border border-primary/40 bg-primary/5 p-3 text-xs text-muted-foreground">
-              视觉语言模型：显存 = 视觉塔 + 文本塔权重（架构估算），KV/吞吐按文本塔计算；图像输入会额外占用上下文 token。
+              多模态模型：显存 = 视觉/音频塔 + 文本塔权重（架构估算），KV/吞吐按文本塔计算；图像/音频输入会额外占用上下文 token。
             </div>
           )}
 
