@@ -311,10 +311,13 @@ describe('dataset integrity', () => {
       expect(g.sourceUrl).toMatch(/^https?:\/\//);
     }
     // GB10 (DGX Spark): datasheet 128GB LPDDR5x / 273GB/s
-    const gb10 = gpuById('gb10-dgx-spark')!;
+    const gb10 = gpuById('gb10-spark')!;
     expect(gb10.vramGB).toBe(128);
     expect(gb10.memBandwidthGBs).toBe(273);
     expect(gb10.gpusPerNode).toBe(1);
+    // 统一内存设备（Apple / AMD AI Max）必须有可用占比
+    expect(gpuById('amd-ai-max-395-128')!.usableFraction).toBeDefined();
+    expect(gpuById('amd-ai-max-385')!.usableFraction).toBeDefined();
   });
 
   it('the two user-designated models are present and verified', () => {

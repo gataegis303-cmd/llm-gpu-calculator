@@ -73,22 +73,13 @@ export const GPUS: GpuSpec[] = [
     sourceUrl: 'https://www.nvidia.com/en-us/data-center/blackwell-architecture/',
   },
   {
-    // DGX Spark 桌面超芯片。官方 datasheet: 128GB LPDDR5x / 273GB/s / 1 PFLOP (FP4 sparse)
-    // / ConnectX-7 200GbE；BF16/FP8 dense 为按 Blackwell 张量核比例推算值。
-    id: 'gb10-dgx-spark', vendor: 'nvidia', name: 'DGX Spark (GB10)',
-    vramGB: 128, memType: 'LPDDR5x 统一内存', memBandwidthGBs: 273,
-    bf16Tflops: 50, fp8Tflops: 100, int8Tflops: 100,
-    interconnect: 'ConnectX-7 (200GbE)', gpusPerNode: 1, usableFraction: 0.93,
-    sourceUrl: 'https://www.nvidia.com/en-us/products/dgx-spark/',
-  },
-  {
     // GB10 Grace Blackwell Superchip（DGX Spark 桌面整机）：
     // 128GB LPDDR5x 统一内存；官方标称 1 PFLOP FP4（稀疏），
     // BF16/FP8 稠密值按 Blackwell 比例换算并在此标注，官方未单列。
     id: 'gb10-spark', vendor: 'nvidia', name: 'GB10 (DGX Spark)',
     vramGB: 128, memType: 'LPDDR5x 统一内存', memBandwidthGBs: 273,
     bf16Tflops: 125, fp8Tflops: 250, int8Tflops: 250,
-    interconnect: 'NVLink 5 (200GB/s，可双机互联)', gpusPerNode: 1, usableFraction: 0.9,
+    interconnect: 'ConnectX-7 (200GbE)，可双机互联', gpusPerNode: 1, usableFraction: 0.9,
     sourceUrl: 'https://www.nvidia.com/en-us/products/dgx-spark/',
   },
   {
@@ -240,6 +231,13 @@ export const GPUS: GpuSpec[] = [
     interconnect: 'PCIe 4.0', gpusPerNode: 4,
     sourceUrl: 'https://www.amd.com/en/products/graphics/radeon-rx-7900xtx.html',
   },
+  {
+    id: 'amd-ai-max-385', vendor: 'amd', name: 'Ryzen AI Max 385 (64GB 统一内存)',
+    vramGB: 64, memType: 'LPDDR5X 统一内存', memBandwidthGBs: 256,
+    bf16Tflops: 24, int8Tflops: 48,
+    interconnect: '统一内存架构', gpusPerNode: 1, usableFraction: 0.75,
+    sourceUrl: 'https://www.amd.com/en/products/processors/laptop/ryzen/ai-max-series.html',
+  },
   // ── AMD 统一内存 APU（Strix Halo，桌面 AI 终端）─────────────────────────
   {
     // Ryzen AI Max+ 395「Strix Halo」：Radeon 8060S (40CU RDNA3.5)，256-bit LPDDR5X-8000
@@ -324,6 +322,13 @@ export const GPUS: GpuSpec[] = [
     sourceUrl: 'https://www.apple.com/mac-mini/specs/',
   },
   {
+    id: 'm4-max-64', vendor: 'apple', name: 'MacBook Pro M4 Max (64GB)',
+    vramGB: 64, memType: 'LPDDR5X 统一内存', memBandwidthGBs: 546,
+    bf16Tflops: 30,
+    interconnect: '统一内存架构', gpusPerNode: 1, usableFraction: 0.75,
+    sourceUrl: 'https://www.apple.com/macbook-pro/specs/',
+  },
+  {
     id: 'm4-pro-64', vendor: 'apple', name: 'Mac mini / MacBook Pro M4 Pro (64GB)',
     vramGB: 64, memType: 'LPDDR5X 统一内存', memBandwidthGBs: 273,
     bf16Tflops: 17,
@@ -347,6 +352,13 @@ export const GPUS: GpuSpec[] = [
   {
     id: 'm3-ultra-512', vendor: 'apple', name: 'Mac Studio M3 Ultra (512GB)',
     vramGB: 512, memType: 'LPDDR5X 统一内存', memBandwidthGBs: 819,
+    bf16Tflops: 34,
+    interconnect: '统一内存架构', gpusPerNode: 1, usableFraction: 0.75,
+    sourceUrl: 'https://www.apple.com/mac-studio/specs/',
+  },
+  {
+    id: 'm3-ultra-256', vendor: 'apple', name: 'Mac Studio M3 Ultra (256GB)',
+    vramGB: 256, memType: 'LPDDR5X 统一内存', memBandwidthGBs: 819,
     bf16Tflops: 34,
     interconnect: '统一内存架构', gpusPerNode: 1, usableFraction: 0.75,
     sourceUrl: 'https://www.apple.com/mac-studio/specs/',
