@@ -5,6 +5,7 @@ import { GPUS, gpuById } from '@/data/gpus';
 import { weightsBytesGB, kvBytesPerToken, estimateVram } from '../vram';
 import { findMinimalPlan } from '../parallelism';
 import { runAllBands, runScenario } from '../search';
+import { runCapacity } from '../capacity';
 
 const qwen7b = modelById('Qwen/Qwen2.5-7B-Instruct')!;
 const llama8b = modelById('meta-llama/Llama-3.1-8B-Instruct')!;
@@ -367,5 +368,113 @@ describe('dataset integrity', () => {
     const usable = usableVramGB(gb10);
     expect(usable).toBeGreaterThan(110);
     expect(usable).toBeLessThan(118);
+  });
+});
+
+describe('capacity: given devices (反向推演)', () => {
+  it('16× H100 fits DeepSeek-V3 FP8 with all 16 cards in one replica (C=32)', () => {
+    const r = runCapacity({
+      model: dsv3, gpu: h100, precisionId: 'fp8',
+      concurrency: 32, avgCtxTokens: 8192, inputTokens: 2048,
+      devices: 16,
+    }, 'typical');
+    expect(r.feasibleAtC).toBe(true);
+    expect(r.plan.feasible).toBe(true);
+    expect(r.plan.devicesPerReplica).toBe(16);
+    expect(r.plan.totalDevices).toBe(16);
+    expect(r.plan.idleDevices).toBe(0);
+    // 单副本 16 卡带宽聚合 → 单用户速度远高于 8 卡方案（8 卡装不下权重，只能拆副本）
+    expect(r.throughput.tpotMs).toBeGreaterThan(0);
+    expect(r.throughput.perUserTokPerSec).toBeGreaterThan(0);
+    expect(r.clusterAggregateTokPerSec).toBeCloseTo(r.throughput.perUserTokPerSec * 32, 6);
+  });
+
+  it('2× H100 serving Qwen2.5-7B puts both cards in one replica (fastest per-user) over 2 DP replicas', () => {
+    const r = runCapacity({
+      model: qwen7b, gpu: h100, precisionId: 'bf16',
+      concurrency: 10, avgCtxTokens: 4096, inputTokens: 2048,
+      devices: 2,
+    }, 'typical');
+    expect(r.plan.totalDevices).toBe(2);
+    expect(r.plan.devicesPerReplica).toBe(2);
+    expect(r.plan.dp).toBe(1);
+    // (15.24GB weights + 10×0.235GB KV) / (2×3350×0.8 GB/s) ≈ 3.3ms
+    expect(r.throughput.tpotMs).toBeGreaterThan(2.5);
+    expect(r.throughput.tpotMs).toBeLessThan(4);
+    expect(r.clusterAggregateTokPerSec).toBeGreaterThan(2500);
+    expect(r.clusterAggregateTokPerSec).toBeLessThan(3500);
+  });
+
+  it('max concurrency grows with devices: 1 → 2 → 4× H100 (KV budget ÷ per-user KV)', () => {
+    const base = {
+      model: qwen7b, gpu: h100, precisionId: 'bf16',
+      concurrency: 16, avgCtxTokens: 8192, inputTokens: 2048,
+    };
+    const c1 = runCapacity({ ...base, devices: 1 }, 'typical');
+    const c2 = runCapacity({ ...base, devices: 2 }, 'typical');
+    const c4 = runCapacity({ ...base, devices: 4 }, 'typical');
+    // budget(dpr=1) ≈ (78.8 − 19.4)GB / 0.47GB per user ≈ 126
+    expect(c1.capacity.maxConcurrency).toBeGreaterThan(120);
+    expect(c1.capacity.maxConcurrency).toBeLessThan(135);
+    // dpr=2 单卡更省开销 → 每副本容量更高，2 卡 ≥ 2×126
+    expect(c2.capacity.maxConcurrency).toBeGreaterThan(270);
+    expect(c4.capacity.maxConcurrency).toBeGreaterThan(c2.capacity.maxConcurrency);
+    expect(c2.capacity.maxConcurrency).toBeGreaterThan(c1.capacity.maxConcurrency);
+    expect(c1.feasibleAtC).toBe(true);
+  });
+
+  it('C=500 on a single H100 exceeds capacity → falls back to full-load numbers', () => {
+    const r = runCapacity({
+      model: qwen7b, gpu: h100, precisionId: 'bf16',
+      concurrency: 500, avgCtxTokens: 8192, inputTokens: 2048,
+      devices: 1,
+    }, 'typical');
+    expect(r.feasibleAtC).toBe(false);
+    expect(r.reason).toBeTruthy();
+    expect(r.capacity.maxConcurrency).toBeGreaterThan(100);
+    expect(r.capacity.maxConcurrency).toBeLessThan(140);
+    // 满载口径：单用户被 KV 拉慢但为正，集群总吞吐 = 单用户 × 满载并发
+    expect(r.throughput.perUserTokPerSec).toBeGreaterThan(0);
+    expect(r.clusterAggregateTokPerSec).toBeCloseTo(
+      r.throughput.perUserTokPerSec * r.capacity.maxConcurrency, 6,
+    );
+  });
+
+  it('13× H100 with DeepSeek-V3 FP8 uses 12 cards and idles 1 (13 not decomposable)', () => {
+    const r = runCapacity({
+      model: dsv3, gpu: h100, precisionId: 'fp8',
+      concurrency: 8, avgCtxTokens: 8192, inputTokens: 2048,
+      devices: 13,
+    }, 'typical');
+    expect(r.plan.devicesPerReplica).toBe(12);
+    expect(r.plan.totalDevices).toBe(12);
+    expect(r.plan.idleDevices).toBe(1);
+    expect(r.feasibleAtC).toBe(true);
+  });
+
+  it('4× H100 cannot hold DeepSeek-V3 FP8 at all → reason + minDevicesToFit = 10', () => {
+    const r = runCapacity({
+      model: dsv3, gpu: h100, precisionId: 'fp8',
+      concurrency: 8, avgCtxTokens: 8192, inputTokens: 2048,
+      devices: 4,
+    }, 'typical');
+    expect(r.plan.feasible).toBe(false);
+    expect(r.capacity.maxConcurrency).toBe(0);
+    expect(r.minDevicesToFit).toBe(10);
+    expect(r.reason).toContain('最少需要 10 张');
+  });
+
+  it('cluster aggregate at user concurrency is monotone non-decreasing in devices', () => {
+    const base = {
+      model: qwen7b, gpu: h100, precisionId: 'bf16',
+      concurrency: 16, avgCtxTokens: 4096, inputTokens: 512,
+    };
+    let prev = -1;
+    for (const n of [1, 2, 4, 8]) {
+      const r = runCapacity({ ...base, devices: n }, 'typical');
+      expect(r.feasibleAtC).toBe(true);
+      expect(r.clusterAggregateTokPerSec).toBeGreaterThanOrEqual(prev - 1e-9);
+      prev = r.clusterAggregateTokPerSec;
+    }
   });
 });
