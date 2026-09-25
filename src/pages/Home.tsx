@@ -22,6 +22,8 @@ export default function Home() {
   const [inputTokens, setInputTokens] = useState(2048);
   const [caveat, setCaveat] = useState<string | undefined>(undefined);
   const [opts, setOpts] = useState<Optimizations>(OPTS_OFF);
+  const [deployMode, setDeployMode] = useState<'min' | 'given'>('min');
+  const [devices, setDevices] = useState(8);
 
   function pickModel(m: ModelSpec) {
     setModel(m);
@@ -55,7 +57,7 @@ export default function Home() {
       <header className="mb-6">
         <h1 className="text-2xl font-semibold tracking-tight">LLM 推理显存与 GPU 需求计算器</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          选模型 → 配精度与负载 → 选硬件，估算最少设备数与 TTFT / TPOT / 吞吐。数据取自 HuggingFace 与 ModelScope 的 config.json 及厂商官方规格。
+          选模型 → 配精度与负载 → 选硬件，估算最少设备数与 TTFT / TPOT / 吞吐；也可以反过来输入手上的实际卡数，推算能获得的并发容量与 tok/s。数据取自 HuggingFace 与 ModelScope 的 config.json 及厂商官方规格。
         </p>
       </header>
 
@@ -97,6 +99,10 @@ export default function Home() {
             input={{ precisionId, concurrency, avgCtxTokens, inputTokens }}
             caveat={caveat}
             opts={opts}
+            deployMode={deployMode}
+            devices={devices}
+            onDeployMode={setDeployMode}
+            onDevices={setDevices}
           />
         ) : (
           <div className="flex items-center justify-center rounded-lg border border-dashed p-8 text-sm text-muted-foreground">

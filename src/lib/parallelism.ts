@@ -30,7 +30,8 @@ export interface SearchInput {
   kvOffloadGB?: number;
 }
 
-function fitPlan(
+/** 单方案显存校验：给定 (tp, pp, dp) 与用户并发，算每卡占用并判定是否装得下。 */
+export function fitPlan(
   tp: number,
   pp: number,
   dp: number,
@@ -105,5 +106,53 @@ export function allFeasiblePlans(input: SearchInput): ParallelPlan[] {
       }
     }
   }
+  return plans;
+}
+
+/** 单卡固定占用（权重分片 + 运行时开销），不含 KV。返回 GB。 */
+export function perDeviceFixedGB(tp: number, pp: number, input: SearchInput): number {
+  const weightPerDeviceGB = (input.model.paramsB * 1e9 * input.bytesPerParam) / (tp * pp) / 1e9;
+  return weightPerDeviceGB + input.overheadBaseGB + weightPerDeviceGB * input.overheadFactor;
+}
+
+/**
+ * 显存容量上限（反向推演用）：给定 (tp, pp) 分解时，单个副本最多可承载的并发路数。
+ * KV 预算 = (可用显存 − 固定占用) × 单副本卡数 + 缓存卸载量，除以每路 KV 字节后向下取整。
+ * 与 fitPlan 的判定式互为逆运算（fitPlan 里 kvTotalBytes 的 max(0, …) 与此处的预算口径一致）。
+ * generic 模型无 KV → Infinity。
+ */
+export function maxReplicaConcurrency(tp: number, pp: number, input: SearchInput): number {
+  const { gpu, avgCtxTokens, kvBytesPerToken, kvOffloadGB } = input;
+  if (kvBytesPerToken <= 0 || avgCtxTokens <= 0) return Number.POSITIVE_INFINITY;
+  const fixedGB = perDeviceFixedGB(tp, pp, input);
+  const kvBudgetBytes = Math.max(0, usableVramGB(gpu) - fixedGB) * tp * pp * 1e9 + (kvOffloadGB ?? 0) * 1e9;
+  return Math.floor(kvBudgetBytes / (avgCtxTokens * kvBytesPerToken));
+}
+
+/**
+ * 反向模式：给定实际设备数 N，枚举所有 (tp, pp, dp) 且 tp×pp×dp === N 的可行切分。
+ * 约束：tp ≤ 节点内卡数、pp ≤ 8、dp = N/(tp×pp) 为整数。
+ */
+export function plansForDevices(input: SearchInput, devices: number): ParallelPlan[] {
+  const { gpu } = input;
+  const maxTp = gpu.vendor === 'apple' ? 1 : gpu.gpusPerNode;
+  const plans: ParallelPlan[] = [];
+  if (!Number.isFinite(devices) || devices < 1 || devices > 128) return plans;
+  for (let tp = 1; tp <= Math.min(maxTp, devices); tp++) {
+    if (devices % tp !== 0) continue;
+    const rest = devices / tp;
+    for (let pp = 1; pp <= Math.min(rest, 8); pp++) {
+      if (rest % pp !== 0) continue;
+      const dp = rest / pp;
+      const plan = fitPlan(tp, pp, dp, input);
+      if (plan.feasible && plan.replicaConcurrency >= 1) plans.push(plan);
+    }
+  }
+  // 单用户吞吐代理排序：每步读取字节越少、聚合带宽越高越好
+  plans.sort((a, b) => {
+    const scoreA = a.replicaConcurrency / (a.tp * gpu.memBandwidthGBs);
+    const scoreB = b.replicaConcurrency / (b.tp * gpu.memBandwidthGBs);
+    return scoreA - scoreB;
+  });
   return plans;
 }
