@@ -6,6 +6,7 @@ import { weightsBytesGB, kvBytesPerToken, estimateVram } from '../vram';
 import { findMinimalPlan } from '../parallelism';
 import { runAllBands, runScenario } from '../search';
 import { runCapacity } from '../capacity';
+import { runFleet, type FleetEntry } from '../fleet';
 
 const qwen7b = modelById('Qwen/Qwen2.5-7B-Instruct')!;
 const llama8b = modelById('meta-llama/Llama-3.1-8B-Instruct')!;
@@ -476,5 +477,77 @@ describe('capacity: given devices (反向推演)', () => {
       expect(r.clusterAggregateTokPerSec).toBeGreaterThanOrEqual(prev - 1e-9);
       prev = r.clusterAggregateTokPerSec;
     }
+  });
+});
+
+describe('fleet: 多模型分卡', () => {
+  const llama70b = modelById('meta-llama/Llama-3.1-70B-Instruct')!;
+  const m4mini = gpuById('m4-mini-16')!;
+
+  const qwenEntry = (id: string, concurrency = 10, avgCtxTokens = 4096): FleetEntry => ({
+    id, model: qwen7b, precisionId: 'bf16', concurrency, avgCtxTokens, inputTokens: 2048,
+  });
+  const llamaEntry = (id: string): FleetEntry => ({
+    id, model: llama70b, precisionId: 'bf16', concurrency: 8, avgCtxTokens: 8192, inputTokens: 2048,
+  });
+
+  it('8× H100 splits spare 4 cards by need ratio: Qwen(need 1) + 70B(need 3) → 2 + 6', () => {
+    const r = runFleet({ gpu: h100, devices: 8, entries: [qwenEntry('a'), llamaEntry('b')] }, 'typical');
+    expect(r.deficit).toBe(0);
+    expect(r.totalNeed).toBe(4);
+    expect(r.idleDevices).toBe(0);
+    expect(r.outcomes[0].floor).toBe(1);
+    expect(r.outcomes[0].need).toBe(1);
+    expect(r.outcomes[0].share).toBe(2);
+    expect(r.outcomes[1].floor).toBe(3);
+    expect(r.outcomes[1].need).toBe(3);
+    expect(r.outcomes[1].share).toBe(6);
+    expect(r.outcomes[0].result?.feasibleAtC).toBe(true);
+    expect(r.outcomes[1].result?.feasibleAtC).toBe(true);
+  });
+
+  it('2× H100 with DeepSeek-V3 FP8 + Qwen7B → deficit 9, no allocation', () => {
+    const r = runFleet({ gpu: h100, devices: 2, entries: [
+      { id: 'dsv3', model: dsv3, precisionId: 'fp8', concurrency: 8, avgCtxTokens: 8192, inputTokens: 2048 },
+      qwenEntry('q'),
+    ] }, 'typical');
+    expect(r.deficit).toBe(9);
+    expect(r.totalNeed).toBe(11); // need(dsv3)=10（dpr=10 可行）+ need(qwen)=1
+    expect(r.outcomes.every((o) => o.share === 0 && o.result === null)).toBe(true);
+  });
+
+  it('invariants: share ≥ floor, Σ share + idle = N, every deployable got a result', () => {
+    const r = runFleet({ gpu: h100, devices: 16, entries: [
+      qwenEntry('a'), llamaEntry('b'), qwenEntry('c', 50, 32768),
+    ] }, 'typical');
+    const sumShare = r.outcomes.reduce((s, o) => s + o.share, 0);
+    expect(sumShare + r.idleDevices).toBe(16);
+    for (const o of r.outcomes) {
+      expect(o.floor).not.toBeNull();
+      expect(o.share).toBeGreaterThanOrEqual(o.floor as number);
+      expect(o.result).not.toBeNull();
+    }
+  });
+
+  it('m4-mini-16: Llama-70B BF16 undeployable → flagged, Qwen still gets all 8 cards', () => {
+    const r = runFleet({ gpu: m4mini, devices: 8, entries: [qwenEntry('q'), llamaEntry('l')] }, 'typical');
+    expect(r.undeployableIds).toEqual(['l']);
+    expect(r.outcomes[0].floor).toBe(3);
+    expect(r.outcomes[0].share).toBe(8);
+    expect(r.outcomes[0].result?.feasibleAtC).toBe(true);
+    expect(r.outcomes[1].floor).toBeNull();
+    expect(r.outcomes[1].result).toBeNull();
+    expect(r.idleDevices).toBe(0);
+  });
+
+  it('single-entry fleet matches runCapacity directly (same N → same numbers)', () => {
+    const fleet = runFleet({ gpu: h100, devices: 2, entries: [qwenEntry('only')] }, 'typical');
+    const direct = runCapacity({
+      model: qwen7b, gpu: h100, precisionId: 'bf16',
+      concurrency: 10, avgCtxTokens: 4096, inputTokens: 2048, devices: 2,
+    }, 'typical');
+    expect(fleet.outcomes[0].share).toBe(2);
+    expect(fleet.outcomes[0].result?.plan.totalDevices).toBe(direct.plan.totalDevices);
+    expect(fleet.outcomes[0].result?.clusterAggregateTokPerSec).toBeCloseTo(direct.clusterAggregateTokPerSec, 6);
   });
 });

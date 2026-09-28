@@ -12,14 +12,34 @@ import InfoTip from '@/components/info-tip';
 interface Props {
   selected: ModelSpec | null;
   onSelect: (m: ModelSpec) => void;
+  /** multi：可多选形态（选中不关面板、chips 可移除、上限 6）；默认 single，行为与旧版一致 */
+  mode?: 'single' | 'multi';
+  selectedList?: ModelSpec[];
+  onAdd?: (m: ModelSpec) => void;
+  onRemove?: (id: string) => void;
+  /** 头部右侧插槽（如 单模型/多模型 切换） */
+  headerExtra?: React.ReactNode;
 }
+
+const FLEET_CAP = 6;
 
 function fmtParams(b: number): string {
   return b >= 1000 ? `${(b / 1000).toFixed(2)}T` : `${b.toFixed(1)}B`;
 }
 
-export default function ModelPicker({ selected, onSelect }: Props) {
+export default function ModelPicker({ selected, onSelect, mode = 'single', selectedList, onAdd, onRemove, headerExtra }: Props) {
   const [open, setOpen] = useState(false);
+  const isMulti = mode === 'multi';
+  const picked = selectedList ?? [];
+  const atCap = isMulti && picked.length >= FLEET_CAP;
+  const pick = (m: ModelSpec) => {
+    if (isMulti) {
+      if (!atCap && !picked.some((x) => x.id === m.id)) onAdd?.(m);
+      return; // 多选：保持面板打开
+    }
+    onSelect(m);
+    setOpen(false);
+  };
   const [query, setQuery] = useState('');
   const [cat, setCat] = useState<ModelCategory | 'all'>('all');
   const [modality, setModality] = useState<string>('all');
@@ -94,8 +114,7 @@ export default function ModelPicker({ selected, onSelect }: Props) {
     setResolvingId(repoId);
     try {
       const spec = await resolveOnlineModel(repoId, new Date().toISOString().slice(0, 10));
-      onSelect(spec);
-      setOpen(false);
+      pick(spec); // single：选中并关面板；multi：加入列表、面板保持打开
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       if (msg.startsWith('NOT_LLM:')) {
@@ -111,7 +130,9 @@ export default function ModelPicker({ selected, onSelect }: Props) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center gap-1.5 text-base">① 选择模型 <InfoTip text="支持搜索内置模型库与 HuggingFace 在线模型（实时查询 config.json 自动推导架构）；选中在线模型需网络，内置库可离线使用。可用规模档位与 MoE 过滤快速定位。" /></CardTitle>
+        <CardTitle className="flex flex-wrap items-center gap-1.5 text-base">
+          ① {isMulti ? '选择模型（多模型共享集群）' : '选择模型'} <InfoTip text={isMulti ? '同一 GPU 类型下可多选多个模型组成集群（最多 6 个）；每个模型的精度与负载在下方 ② 逐个配置。选中在线模型需网络，内置库可离线使用。' : '支持搜索内置模型库与 HuggingFace 在线模型（实时查询 config.json 自动推导架构）；选中在线模型需网络，内置库可离线使用。可用规模档位与 MoE 过滤快速定位。'} /></CardTitle>
+        {headerExtra && <div className="pt-1">{headerExtra}</div>}
         <Popover open={open} onOpenChange={setOpen}>
           <PopoverTrigger asChild>
             <button
@@ -120,8 +141,12 @@ export default function ModelPicker({ selected, onSelect }: Props) {
               aria-expanded={open}
               className="mt-2 flex h-10 w-full items-center justify-between rounded-md border border-border bg-background px-3 py-2 text-sm hover:bg-muted"
             >
-              <span className={cn('truncate', !selected && 'text-muted-foreground')}>
-                {selected ? `${selected.name} · ${fmtParams(selected.paramsB)}` : '搜索或选择模型…'}
+              <span className={cn('truncate', !selected && !isMulti && 'text-muted-foreground')}>
+                {isMulti
+                  ? picked.length > 0
+                    ? `已选 ${picked.length} 个模型 · 点击继续添加`
+                    : '搜索或选择模型（可多选）…'
+                  : selected ? `${selected.name} · ${fmtParams(selected.paramsB)}` : '搜索或选择模型…'}
               </span>
               <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
             </button>
@@ -199,9 +224,8 @@ export default function ModelPicker({ selected, onSelect }: Props) {
                         key={m.id}
                         value={m.id}
                         onSelect={() => {
-                          onSelect(m);
+                          pick(m);
                           setResolveError(null);
-                          setOpen(false);
                         }}
                       >
                         <div className="flex w-full items-center justify-between gap-2">
@@ -225,7 +249,7 @@ export default function ModelPicker({ selected, onSelect }: Props) {
                 {(searching || onlineOnly.length > 0 || searchError) && (
                   <CommandGroup heading="HuggingFace 在线搜索">
                     {query.includes('/') && (
-                      <CommandItem value={`direct-fetch-${query}`} onSelect={() => pickOnline(query.trim())}>
+                                            <CommandItem value={`direct-fetch-${query}`} onSelect={() => pickOnline(query.trim())}>
                         <div className="flex w-full items-center justify-between gap-2">
                           <span className="truncate">
                             直接拉取 <span className="font-medium">{query.trim()}</span>
@@ -280,9 +304,38 @@ export default function ModelPicker({ selected, onSelect }: Props) {
             )}
           </PopoverContent>
         </Popover>
+        {isMulti && picked.length > 0 && (
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {picked.map((m) => (
+              <span key={m.id} className="inline-flex items-center gap-1 rounded-full border border-border bg-muted/60 py-0.5 pl-2.5 pr-1 text-xs">
+                {m.name}
+                <button
+                  type="button"
+                  aria-label={`移除 ${m.name}`}
+                  onClick={() => onRemove?.(m.id)}
+                  className="rounded-full px-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                >
+                  ×
+                </button>
+              </span>
+            ))}
+            {atCap && <span className="self-center text-[11px] text-amber-600 dark:text-amber-400">已达 {FLEET_CAP} 个上限</span>}
+          </div>
+        )}
       </CardHeader>
       <CardContent className="border-t bg-muted/40">
-        {selected ? (
+        {isMulti ? (
+          picked.length > 0 ? (
+            <div className="flex flex-wrap items-center gap-2">
+              {picked.map((m) => (
+                <Badge key={m.id} variant="secondary">{m.name} · {fmtParams(m.paramsB)}</Badge>
+              ))}
+              <span className="text-xs text-muted-foreground">共 {picked.length} 个模型，在下方 ② 逐个配置负载</span>
+            </div>
+          ) : (
+            <div className="py-1 text-sm text-muted-foreground">尚未添加模型：在上方搜索并选择（可多选，最多 {FLEET_CAP} 个）</div>
+          )
+        ) : selected ? (
           <>
             <div className="flex flex-wrap items-center gap-2">
               <Badge variant="secondary">{selected.org}</Badge>

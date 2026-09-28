@@ -9,6 +9,10 @@ import { modelById } from '@/data/models';
 import { gpuById } from '@/data/gpus';
 import { PRESET_SCENARIOS, type PresetScenario } from '@/data/scenarios';
 import { OPTS_OFF, type Optimizations } from '@/lib/optimizations';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import type { FleetEntry } from '@/lib/fleet';
+import FleetConfigPicker from '@/sections/FleetConfigPicker';
+import FleetResultsPanel from '@/sections/FleetResultsPanel';
 import OptPanel from '@/sections/OptPanel';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -24,6 +28,46 @@ export default function Home() {
   const [opts, setOpts] = useState<Optimizations>(OPTS_OFF);
   const [deployMode, setDeployMode] = useState<'min' | 'given'>('min');
   const [devices, setDevices] = useState(8);
+  const [appMode, setAppMode] = useState<'single' | 'multi'>('single');
+  const [fleetEntries, setFleetEntries] = useState<FleetEntry[]>(() => {
+    const qwen = modelById('Qwen/Qwen2.5-7B-Instruct');
+    const dsv3 = modelById('deepseek-ai/DeepSeek-V3');
+    const entries: FleetEntry[] = [];
+    if (qwen) {
+      entries.push({ id: 'fleet-qwen7b', model: qwen, precisionId: 'bf16', concurrency: 10, avgCtxTokens: 8192, inputTokens: 2048 });
+    }
+    if (dsv3) {
+      const prec = dsv3.precisions.some((x) => x.id === 'fp8') ? 'fp8' : dsv3.precisions[0].id;
+      entries.push({ id: 'fleet-dsv3', model: dsv3, precisionId: prec, concurrency: 32, avgCtxTokens: Math.min(32768, Math.max(...dsv3.contexts)), inputTokens: 2048 });
+    }
+    return entries;
+  });
+
+  function addFleetModel(m: ModelSpec) {
+    setFleetEntries((prev) => {
+      if (prev.length >= 6 || prev.some((e) => e.model.id === m.id)) return prev;
+      return [
+        ...prev,
+        {
+          id: `fleet-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
+          model: m,
+          precisionId: m.precisions[0].id,
+          concurrency: 10,
+          avgCtxTokens: Math.min(8192, Math.max(...m.contexts)),
+          inputTokens: 2048,
+        },
+      ];
+    });
+  }
+
+  /** chips 传模型 id，配置行传条目 id —— 两者都接受（模型 id 在 fleet 内唯一） */
+  function removeFleetEntry(idOrModelId: string) {
+    setFleetEntries((prev) => prev.filter((e) => e.id !== idOrModelId && e.model.id !== idOrModelId));
+  }
+
+  function patchFleetEntry(id: string, patch: Partial<Omit<FleetEntry, 'id' | 'model'>>) {
+    setFleetEntries((prev) => prev.map((e) => (e.id === id ? { ...e, ...patch } : e)));
+  }
 
   function pickModel(m: ModelSpec) {
     setModel(m);
@@ -57,7 +101,7 @@ export default function Home() {
       <header className="mb-6">
         <h1 className="text-2xl font-semibold tracking-tight">LLM 推理显存与 GPU 需求计算器</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          选模型 → 配精度与负载 → 选硬件，估算最少设备数与 TTFT / TPOT / 吞吐；也可以反过来输入手上的实际卡数，推算能获得的并发容量与 tok/s。数据取自 HuggingFace 与 ModelScope 的 config.json 及厂商官方规格。
+          选模型 → 配精度与负载 → 选硬件，估算最少设备数与 TTFT / TPOT / 吞吐；也可以反过来输入手上的实际卡数，推算能获得的并发容量与 tok/s；支持多模型共享集群，把一批卡按需求分给多个模型分别推演。数据取自 HuggingFace 与 ModelScope 的 config.json 及厂商官方规格。
         </p>
       </header>
 
@@ -73,26 +117,59 @@ export default function Home() {
       </Card>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <ModelPicker selected={model} onSelect={pickModel} />
+        <ModelPicker
+          selected={model}
+          onSelect={pickModel}
+          mode={appMode}
+          selectedList={appMode === 'multi' ? fleetEntries.map((e) => e.model) : undefined}
+          onAdd={appMode === 'multi' ? addFleetModel : undefined}
+          onRemove={appMode === 'multi' ? (modelId) => { removeFleetEntry(modelId); } : undefined}
+          headerExtra={
+            <Tabs value={appMode} onValueChange={(v) => setAppMode(v === 'multi' ? 'multi' : 'single')}>
+              <TabsList className="h-7">
+                <TabsTrigger value="single" className="h-6 px-2.5 text-xs">单模型</TabsTrigger>
+                <TabsTrigger value="multi" className="h-6 px-2.5 text-xs">多模型</TabsTrigger>
+              </TabsList>
+            </Tabs>
+          }
+        />
         <GpuPicker selected={gpu} onSelect={setGpu} />
       </div>
 
       <div className="mt-4 grid gap-4 lg:grid-cols-2">
         <div className="space-y-4">
-        <ConfigPicker
-          model={model}
-          precisionId={precisionId}
-          onPrecision={setPrecisionId}
-          avgCtxTokens={avgCtxTokens}
-          onAvgCtx={setAvgCtxTokens}
-          concurrency={concurrency}
-          onConcurrency={setConcurrency}
-          inputTokens={inputTokens}
-          onInputTokens={setInputTokens}
-        />
+        {appMode === 'multi' ? (
+          <FleetConfigPicker
+            entries={fleetEntries}
+            onPatch={patchFleetEntry}
+            onRemove={removeFleetEntry}
+          />
+        ) : (
+          <ConfigPicker
+            model={model}
+            precisionId={precisionId}
+            onPrecision={setPrecisionId}
+            avgCtxTokens={avgCtxTokens}
+            onAvgCtx={setAvgCtxTokens}
+            concurrency={concurrency}
+            onConcurrency={setConcurrency}
+            inputTokens={inputTokens}
+            onInputTokens={setInputTokens}
+          />
+        )}
           <OptPanel gpu={gpu} opts={opts} onOptsChange={setOpts} />
         </div>
-        {ready ? (
+        {ready && appMode === 'multi' ? (
+          <FleetResultsPanel
+            gpu={gpu}
+            entries={fleetEntries}
+            devices={devices}
+            deployMode={deployMode}
+            onDeployMode={setDeployMode}
+            onDevices={setDevices}
+            opts={opts}
+          />
+        ) : ready ? (
           <ResultsPanel
             model={model}
             gpu={gpu}
