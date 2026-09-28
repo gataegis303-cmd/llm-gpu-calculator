@@ -1,13 +1,15 @@
 {
   "name": "my-app",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "dist:web": "vite build",
+    "dist:mac": "vite build && electron-builder --mac"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
@@ -64,6 +66,8 @@
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.1.1",
     "autoprefixer": "^10.4.23",
+    "electron": "^44.4.5",
+    "electron-builder": "^26.15.3",
     "eslint": "^9.39.1",
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.4.24",
@@ -78,6 +82,29 @@
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.46.4",
     "vite": "^7.2.4",
-    "vitest": "^5.0.1"
-  }
+    "vitest": "^5.0.1",
+    "ws": "^8.22.0"
+  },
+  "main": "electron/main.cjs",
+  "author": "Mia.369 <mia.369@evomap.ai>",
+  "build": {
+    "appId": "ai.evomap.llm-gpu-calculator",
+    "productName": "LLM GPU Calculator",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**",
+      "electron/**"
+    ],
+    "mac": {
+      "target": [
+        "dmg",
+        "dir"
+      ],
+      "category": "public.app-category.developer-tools",
+      "identity": null
+    }
+  },
+  "description": "LLM 推理显存与 GPU 需求计算器：单模型 / 多模型集群部署推演"
 }
