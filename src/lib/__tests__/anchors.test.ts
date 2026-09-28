@@ -6,7 +6,7 @@ import { weightsBytesGB, kvBytesPerToken, estimateVram } from '../vram';
 import { findMinimalPlan } from '../parallelism';
 import { runAllBands, runScenario } from '../search';
 import { runCapacity } from '../capacity';
-import { runFleet, type FleetEntry } from '../fleet';
+import { runFleet, fleetEntrySummary, type FleetEntry } from '../fleet';
 
 const qwen7b = modelById('Qwen/Qwen2.5-7B-Instruct')!;
 const llama8b = modelById('meta-llama/Llama-3.1-8B-Instruct')!;
@@ -549,5 +549,30 @@ describe('fleet: 多模型分卡', () => {
     expect(fleet.outcomes[0].share).toBe(2);
     expect(fleet.outcomes[0].result?.plan.totalDevices).toBe(direct.plan.totalDevices);
     expect(fleet.outcomes[0].result?.clusterAggregateTokPerSec).toBeCloseTo(direct.clusterAggregateTokPerSec, 6);
+  });
+});
+
+describe('fleet entry summary（清单行：类型/显存/最少卡数）', () => {
+  const llama70b = modelById('meta-llama/Llama-3.1-70B-Instruct')!;
+  it('Qwen2.5-7B bf16 C=10 ctx4K on H100: LLM, ~21.7GB total, floor 1, need 1', () => {
+    const sum = fleetEntrySummary({ id: 'a', model: qwen7b, precisionId: 'bf16', concurrency: 10, avgCtxTokens: 4096, inputTokens: 2048 }, h100);
+    expect(sum.kind).toBe('llm');
+    expect(sum.kindLabel).toBe('LLM（文本生成）');
+    expect(sum.weightsGB).toBeGreaterThan(15);
+    expect(sum.weightsGB).toBeLessThan(16);
+    expect(sum.totalGB).toBeGreaterThan(20);
+    expect(sum.totalGB).toBeLessThan(23);
+    expect(sum.floor).toBe(1);
+    expect(sum.need).toBe(1);
+  });
+
+  it('kind label maps vlm / generic; cards bound by gpu', () => {
+    const vlm = fleetEntrySummary({ id: 'v', model: { ...qwen7b, kind: 'vlm' } as ModelSpec, precisionId: 'bf16', concurrency: 10, avgCtxTokens: 4096, inputTokens: 2048 }, h100);
+    expect(vlm.kindLabel).toBe('VLM（多模态）');
+    const gen = fleetEntrySummary({ id: 'g', model: { ...qwen7b, kind: 'generic' } as ModelSpec, precisionId: 'bf16', concurrency: 2, avgCtxTokens: 4096, inputTokens: 2048 }, h100);
+    expect(gen.kindLabel).toBe('非自回归');
+    const big = fleetEntrySummary({ id: 'b', model: llama70b, precisionId: 'bf16', concurrency: 8, avgCtxTokens: 8192, inputTokens: 2048 }, h100);
+    expect(big.floor).toBe(3);
+    expect(big.need).toBe(3);
   });
 });

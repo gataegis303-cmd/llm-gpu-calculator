@@ -10,7 +10,7 @@ import { gpuById } from '@/data/gpus';
 import { PRESET_SCENARIOS, type PresetScenario } from '@/data/scenarios';
 import { OPTS_OFF, type Optimizations } from '@/lib/optimizations';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import type { FleetEntry } from '@/lib/fleet';
+import { fleetEntrySummary, type FleetEntry } from '@/lib/fleet';
 import FleetConfigPicker from '@/sections/FleetConfigPicker';
 import FleetResultsPanel from '@/sections/FleetResultsPanel';
 import OptPanel from '@/sections/OptPanel';
@@ -122,6 +122,12 @@ export default function Home() {
           onSelect={pickModel}
           mode={appMode}
           selectedList={appMode === 'multi' ? fleetEntries.map((e) => e.model) : undefined}
+          summaryOf={appMode === 'multi' && gpu ? (m) => {
+            const entry = fleetEntries.find((e) => e.model.id === m.id);
+            if (!entry) return undefined;
+            const sum = fleetEntrySummary(entry, gpu, opts);
+            return { kindLabel: sum.kindLabel, kind: sum.kind, vramGB: sum.totalGB, minDevices: sum.need ?? sum.floor };
+          } : undefined}
           onAdd={appMode === 'multi' ? addFleetModel : undefined}
           onRemove={appMode === 'multi' ? (modelId) => { removeFleetEntry(modelId); } : undefined}
           headerExtra={
@@ -139,11 +145,15 @@ export default function Home() {
       <div className="mt-4 grid gap-4 lg:grid-cols-2">
         <div className="space-y-4">
         {appMode === 'multi' ? (
+          gpu ? (
           <FleetConfigPicker
+            gpu={gpu}
             entries={fleetEntries}
+            opts={opts}
             onPatch={patchFleetEntry}
             onRemove={removeFleetEntry}
           />
+          ) : null
         ) : (
           <ConfigPicker
             model={model}

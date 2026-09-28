@@ -215,3 +215,55 @@ export function runFleetAllBands(input: FleetInput): Record<Band, FleetBandResul
     aggressive: runFleet(input, 'aggressive'),
   };
 }
+
+/** 模型种类分组（按 kind，展示顺序即数组顺序） */
+export const FLEET_KIND_ORDER = ['llm', 'vlm', 'generic'] as const;
+export type FleetKind = (typeof FLEET_KIND_ORDER)[number];
+
+export function fleetKindOf(model: ModelSpec): FleetKind {
+  return model.kind === 'vlm' || model.kind === 'generic' ? model.kind : 'llm';
+}
+
+export function fleetKindLabel(kind: FleetKind): string {
+  return kind === 'vlm' ? 'VLM（多模态）' : kind === 'generic' ? '非自回归' : 'LLM（文本生成）';
+}
+
+export interface FleetEntrySummary {
+  kind: FleetKind;
+  kindLabel: string;
+  /** 权重显存（当前精度） */
+  weightsGB: number;
+  /** KV 常驻显存（当前并发 × 上下文，未折减口径） */
+  kvGB: number;
+  /** 单副本服务声明负载的总显存 = 权重 + KV + 开销（典型档系数） */
+  totalGB: number;
+  /** 权重装载下界；null = 本硬件 TP×PP 枚举内放不下 */
+  floor: number | null;
+  /** 服务声明并发的最少卡数 */
+  need: number | null;
+}
+
+/** 单条目的清单摘要（类型 / 显存 / 最少卡数），供 ①② 行展示；典型档口径。 */
+export function fleetEntrySummary(entry: FleetEntry, gpu: GpuSpec, opts: Optimizations = OPTS_OFF): FleetEntrySummary {
+  const si = searchInputOfEntry(entry, 'typical', gpu, opts);
+  const weightsGB = (entry.model.paramsB * 1e9 * si.bytesPerParam) / 1e9;
+  const kvGB = (entry.concurrency * entry.avgCtxTokens * si.kvBytesPerToken) / 1e9;
+  const overheadGB = si.overheadBaseGB + weightsGB * si.overheadFactor;
+  const floor = weightsFloorOf(si);
+  const need = floor === null
+    ? null
+    : (() => {
+        const minimal = findMinimalPlan(si);
+        return minimal.feasible ? minimal.totalDevices : floor;
+      })();
+  const kind = fleetKindOf(entry.model);
+  return {
+    kind,
+    kindLabel: fleetKindLabel(kind),
+    weightsGB,
+    kvGB,
+    totalGB: weightsGB + kvGB + overheadGB,
+    floor,
+    need,
+  };
+}

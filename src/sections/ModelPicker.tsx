@@ -19,15 +19,26 @@ interface Props {
   onRemove?: (id: string) => void;
   /** 头部右侧插槽（如 单模型/多模型 切换） */
   headerExtra?: React.ReactNode;
+  /** multi：清单行摘要（类型 / 显存 / 最少卡数），由调用方按当前配置提供 */
+  summaryOf?: (m: ModelSpec) => { kindLabel: string; kind: string; vramGB: number; minDevices: number | null } | undefined;
 }
 
 const FLEET_CAP = 6;
+
+const KIND_ORDER = ['llm', 'vlm', 'generic'] as const;
+type Kind = (typeof KIND_ORDER)[number];
+function kindOf(m: ModelSpec): Kind {
+  return m.kind === 'vlm' || m.kind === 'generic' ? m.kind : 'llm';
+}
+function kindLabelOf(kind: Kind): string {
+  return kind === 'vlm' ? 'VLM（多模态）' : kind === 'generic' ? '非自回归' : 'LLM（文本生成）';
+}
 
 function fmtParams(b: number): string {
   return b >= 1000 ? `${(b / 1000).toFixed(2)}T` : `${b.toFixed(1)}B`;
 }
 
-export default function ModelPicker({ selected, onSelect, mode = 'single', selectedList, onAdd, onRemove, headerExtra }: Props) {
+export default function ModelPicker({ selected, onSelect, mode = 'single', selectedList, onAdd, onRemove, headerExtra, summaryOf }: Props) {
   const [open, setOpen] = useState(false);
   const isMulti = mode === 'multi';
   const picked = selectedList ?? [];
@@ -305,21 +316,51 @@ export default function ModelPicker({ selected, onSelect, mode = 'single', selec
           </PopoverContent>
         </Popover>
         {isMulti && picked.length > 0 && (
-          <div className="mt-2 flex flex-wrap gap-1.5">
-            {picked.map((m) => (
-              <span key={m.id} className="inline-flex items-center gap-1 rounded-full border border-border bg-muted/60 py-0.5 pl-2.5 pr-1 text-xs">
-                {m.name}
-                <button
-                  type="button"
-                  aria-label={`移除 ${m.name}`}
-                  onClick={() => onRemove?.(m.id)}
-                  className="rounded-full px-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                >
-                  ×
-                </button>
-              </span>
-            ))}
-            {atCap && <span className="self-center text-[11px] text-amber-600 dark:text-amber-400">已达 {FLEET_CAP} 个上限</span>}
+          <div className="mt-2 space-y-1.5">
+            {KIND_ORDER.map((kind) => {
+              const rows = picked.filter((m) => kindOf(m) === kind);
+              if (rows.length === 0) return null;
+              return (
+                <div key={kind} className="space-y-1">
+                  <div className="flex items-center gap-2 text-[11px] font-medium text-muted-foreground">
+                    {kindLabelOf(kind)}
+                    <span className="opacity-70">{rows.length}</span>
+                    <div className="h-px flex-1 bg-border" />
+                  </div>
+                  {rows.map((m) => {
+                    const sum = summaryOf?.(m);
+                    return (
+                      <div key={m.id} className="flex flex-wrap items-center gap-x-2 gap-y-0.5 rounded-md border border-border bg-muted/40 px-2 py-1 text-xs">
+                        <span className="font-medium">{m.name}</span>
+                        <span className="text-muted-foreground">{fmtParams(m.paramsB)} 参数</span>
+                        {m.isMoE && <span className="text-[10px] text-amber-600 dark:text-amber-400">MoE</span>}
+                        <span className="text-muted-foreground">·</span>
+                        {sum ? (
+                          <span>
+                            显存 <span className="font-medium text-foreground">{sum.vramGB >= 100 ? sum.vramGB.toFixed(0) : sum.vramGB.toFixed(1)}</span> GB
+                            <span className="text-muted-foreground"> · </span>
+                            {sum.minDevices === null
+                              ? <span className="text-destructive">无法装载</span>
+                              : <>最少 <span className="font-medium text-foreground">{sum.minDevices}</span> 张卡</>}
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground">待配置负载</span>
+                        )}
+                        <button
+                          type="button"
+                          aria-label={`移除 ${m.name}`}
+                          onClick={() => onRemove?.(m.id)}
+                          className="ml-auto rounded px-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                        >
+                          移除
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })}
+            {atCap && <div className="text-[11px] text-amber-600 dark:text-amber-400">已达 {FLEET_CAP} 个上限</div>}
           </div>
         )}
       </CardHeader>
