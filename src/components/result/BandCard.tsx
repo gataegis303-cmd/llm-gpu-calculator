@@ -20,10 +20,10 @@ export default function BandCard({ meta, highlighted, children, className }: Ban
   return (
     <div
       className={cn(
-        'h-full flex flex-col rounded-2xl border p-3.5 transition-shadow duration-fast',
+        'h-full flex flex-col rounded-2xl p-3.5 transition-shadow duration-fast',
         highlighted
-          ? 'border-primary/20 bg-primary/[0.03] shadow-card'
-          : 'border-border/60 bg-card hover:shadow-card',
+          ? 'bg-primary/[0.05] shadow-card'
+          : 'bg-secondary/40 hover:shadow-card',
         className,
       )}
     >

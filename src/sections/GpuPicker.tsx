@@ -144,7 +144,7 @@ function DeployableList({ gpu }: { gpu: GpuSpec }) {
     );
   };
   return (
-    <div className="mt-3 overflow-hidden rounded-xl border border-border/60 bg-background/50">
+    <div className="mt-3 overflow-hidden rounded-xl bg-secondary/30">
       <button
         type="button"
         onClick={() => setExpanded((v) => !v)}

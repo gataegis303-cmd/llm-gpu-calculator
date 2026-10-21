@@ -103,7 +103,7 @@ export default function FleetResultsPanel({ gpu, entries, devices, deployMode, o
                 </Callout>
               )}
 
-              <div className="rounded-2xl border border-border/60 bg-secondary/30 p-5">
+              <div className="rounded-2xl bg-secondary/30 p-5">
                 {given ? (
                   deficit === 0 ? (
                     <>
@@ -242,7 +242,7 @@ export default function FleetResultsPanel({ gpu, entries, devices, deployMode, o
                         const sum = summaries.get(o.entry.id)!;
                         const r = o.result;
                         return (
-                          <div key={o.entry.id} className="rounded-2xl border border-border/60 bg-card p-4 text-xs">
+                          <div key={o.entry.id} className="rounded-2xl bg-secondary/30 p-4 text-xs">
                             <div className="mb-2 flex flex-wrap items-center gap-1.5">
                               <span className="font-medium text-foreground">{o.entry.model.name}</span>
                               <span className="text-[10px] text-muted-foreground">{fmtParams(o.entry.model.paramsB)}</span>
@@ -295,7 +295,7 @@ export default function FleetResultsPanel({ gpu, entries, devices, deployMode, o
                     </div>
                   ))}
                   {given && deficit === 0 && (
-                    <div className="rounded-2xl border border-border/60 bg-secondary/30 p-4 text-xs">
+                    <div className="rounded-2xl bg-secondary/30 p-4 text-xs">
                       <div className="mb-2 font-semibold text-foreground">全集群合计</div>
                       <dl className="grid grid-cols-2 gap-x-4 gap-y-2">
                         <div>
@@ -324,7 +324,7 @@ export default function FleetResultsPanel({ gpu, entries, devices, deployMode, o
                 {typical.outcomes.map((o, i) => {
                   const seg = SEG_CLS[i % SEG_CLS.length];
                   return (
-                    <div key={o.entry.id} className="rounded-2xl border border-border/60 bg-card p-4 transition-shadow duration-fast hover:shadow-card">
+                    <div key={o.entry.id} className="rounded-2xl bg-secondary/30 p-4 transition-shadow duration-fast hover:shadow-card">
                       <div className="mb-3 flex flex-wrap items-center gap-2">
                         <span className={cn('inline-block h-2.5 w-2.5 rounded-full', o.floor === null ? 'bg-muted-foreground/30' : seg)} />
                         <span className="text-sm font-semibold text-foreground">{o.entry.model.name}</span>

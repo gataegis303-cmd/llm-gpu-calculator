@@ -74,7 +74,7 @@ export default function FleetConfigPicker({ gpu, entries, opts, onPatch, onRemov
             {g.items.map((e) => {
               const sum = summaries.get(e.id)!;
               return (
-                <div key={e.id} className="rounded-2xl border border-border/60 bg-card p-4 transition-shadow duration-fast hover:shadow-card">
+                <div key={e.id} className="rounded-2xl bg-secondary/30 p-4 transition-shadow duration-fast hover:shadow-card">
                   <div className="mb-3 grid grid-cols-[1fr_auto] items-start gap-3">
                     <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
                       <span className="text-value">{e.model.name}</span>

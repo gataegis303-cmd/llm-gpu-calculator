@@ -10,16 +10,16 @@ interface CalloutProps {
 }
 
 const styles: Record<CalloutVariant, string> = {
-  info: 'border-primary/20 bg-primary/[0.03] text-muted-foreground',
-  warning: 'border-amber-500/20 bg-amber-500/10 text-amber-700 dark:text-amber-400',
-  error: 'border-destructive/20 bg-destructive/10 text-destructive',
+  info: 'bg-primary/[0.06] text-muted-foreground',
+  warning: 'bg-amber-500/15 text-amber-700 dark:text-amber-400',
+  error: 'bg-destructive/15 text-destructive',
 };
 
 export default function Callout({ children, variant, icon, className }: CalloutProps) {
   return (
     <div
       className={cn(
-        'flex items-start gap-2 rounded-xl border p-3 text-xs leading-relaxed animate-slide-in-right',
+        'flex items-start gap-2 rounded-xl p-3 text-xs leading-relaxed animate-slide-in-right',
         styles[variant],
         className,
       )}

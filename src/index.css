@@ -46,8 +46,8 @@
     --duration-enter: 500ms;
 
     /* Shadow tokens */
-    --shadow-card: 0 1px 2px -1px rgb(0 0 0 / 0.05), 0 1px 3px 0 rgb(0 0 0 / 0.04), 0 4px 12px -2px rgb(0 0 0 / 0.04);
-    --shadow-card-hover: 0 4px 6px -2px rgb(0 0 0 / 0.03), 0 10px 24px -4px rgb(0 0 0 / 0.06);
+    --shadow-card: 0 1px 2px rgb(0 0 0 / 0.04), 0 4px 8px rgb(0 0 0 / 0.04), 0 12px 24px -8px rgb(0 0 0 / 0.07);
+    --shadow-card-hover: 0 2px 4px rgb(0 0 0 / 0.04), 0 8px 20px -4px rgb(0 0 0 / 0.10);
     --shadow-elevated: 0 8px 16px -4px rgb(0 0 0 / 0.04), 0 24px 48px -8px rgb(0 0 0 / 0.08);
   }
 
@@ -210,11 +210,12 @@
   }
 
   .section-card {
-    @apply rounded-2xl border border-border/60 bg-card shadow-sm transition-shadow duration-200;
+    @apply rounded-2xl bg-card transition-shadow duration-200;
+    box-shadow: var(--shadow-card);
   }
 
   .section-card:hover {
-    box-shadow: var(--shadow-card);
+    box-shadow: var(--shadow-card-hover);
   }
 
   .page-container {

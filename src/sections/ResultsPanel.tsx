@@ -109,7 +109,7 @@ export default function ResultsPanel({ model, gpu, input, caveat, opts, deployMo
               )}
 
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <div className="rounded-2xl border border-border/60 bg-secondary/30 p-5">
+                <div className="rounded-2xl bg-secondary/30 p-5">
                   <div className="metric-value">
                     {capFits && !isGeneric ? (
                       <>
@@ -129,7 +129,7 @@ export default function ResultsPanel({ model, gpu, input, caveat, opts, deployMo
                   )}
                 </div>
                 <VramBar
-                  className="rounded-2xl border border-border/60 bg-secondary/30 p-5"
+                  className="rounded-2xl bg-secondary/30 p-5"
                   weights={barWeights}
                   kv={barKv}
                   overhead={barOverhead}
@@ -185,14 +185,14 @@ export default function ResultsPanel({ model, gpu, input, caveat, opts, deployMo
           ) : (
             <>
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <div className="rounded-2xl border border-border/60 bg-secondary/30 p-5">
+                <div className="rounded-2xl bg-secondary/30 p-5">
                   <div className="metric-value">
                     <AnimatedNumber value={minDevices === maxDevices ? minDevices : `${minDevices}–${maxDevices}`} />
                     <span className="metric-label ml-2">张 {gpu.name}</span>
                   </div>
                 </div>
                 <VramBar
-                  className="rounded-2xl border border-border/60 bg-secondary/30 p-5"
+                  className="rounded-2xl bg-secondary/30 p-5"
                   weights={barWeights}
                   kv={barKv}
                   overhead={barOverhead}

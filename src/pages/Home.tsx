@@ -33,7 +33,7 @@ function Stepper({
   current: number;
 }) {
   return (
-    <div className="flex items-center gap-2 rounded-2xl border border-border/60 bg-card p-2 shadow-sm sm:p-3">
+    <div className="flex items-center gap-2 rounded-2xl bg-card p-2 shadow-card sm:p-3">
       {steps.map((step, idx) => {
         const Icon = step.icon;
         const active = idx <= current;

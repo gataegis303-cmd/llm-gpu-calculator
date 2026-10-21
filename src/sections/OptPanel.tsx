@@ -42,7 +42,7 @@ function SettingRow({
   return (
     <div
       className={cn(
-        'flex flex-col items-start gap-3 rounded-xl border border-border/60 bg-card p-3 transition-colors sm:flex-row sm:flex-wrap sm:items-center sm:justify-between',
+        'flex flex-col items-start gap-3 rounded-xl bg-secondary/40 p-3 transition-colors sm:flex-row sm:flex-wrap sm:items-center sm:justify-between',
         disabled && 'bg-secondary/40 opacity-60',
       )}
     >
