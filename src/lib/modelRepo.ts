@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 // Live model repository: search HuggingFace, fetch config.json on demand,
 // derive a ModelSpec from the config. Embedded snapshot stays as offline fallback.
 // All upstream calls go through the vite dev proxy (/hf-api, /hf-file, /ms-file).
