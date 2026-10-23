@@ -31,7 +31,7 @@ export default function FleetConfigPicker({ gpu, entries, opts, onPatch, onRemov
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-base font-semibold tracking-tight">
           <LayoutGrid className="h-4 w-4 text-primary" />
-          逐模型负载
+          配置负载
           <InfoTip text="每个模型独立配置精度、上下文与并发；行头显存按当前配置估算（权重 + KV + 开销），最少卡数为服务该负载的最小设备数。引擎按各自需求分配集群卡数，再逐模型推演。" />
         </CardTitle>
         <CardDescription>

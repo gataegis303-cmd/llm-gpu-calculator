@@ -68,7 +68,7 @@ export default function ResultsPanel({ model, gpu, input, caveat, opts, deployMo
       <Card className="section-card">
         <ResultHeader
           icon={<Rocket className="h-4 w-4 text-primary" />}
-          title={`部署推演 — ${model.name} @ ${gpu.name}`}
+          title={`推演结果 — ${model.name} @ ${gpu.name}`}
           infoTip={given ? GIVEN_TIP : MIN_TIP}
           subtitle={
             given

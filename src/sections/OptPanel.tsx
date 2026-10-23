@@ -85,7 +85,7 @@ export default function OptPanel({ gpu, opts, onOptsChange }: Props) {
       <CardHeader>
         <div className="flex items-center gap-2">
           <Zap className="h-4 w-4 text-primary" />
-          <CardTitle className="text-base font-semibold tracking-tight">性能优化选项</CardTitle>
+          <CardTitle className="text-base font-semibold tracking-tight">性能优化</CardTitle>
           <InfoTip text="推理服务常见优化，按所选硬件自动判定可用性：分块预填充改善并发下 TTFT（解码轻微上浮）；KV FP8 量化使 KV 字节减半（无 FP8 的卡可用 INT8）；热缓存（内存）命中免重复预填充；冷缓存（SSD）扩展 KV 容量，检索延迟计入 TTFT。" />
         </div>
         {gpuName && <p className="text-meta">已按「{gpuName}」适配可用性</p>}

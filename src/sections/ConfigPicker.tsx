@@ -178,7 +178,7 @@ export default function ConfigPicker(p: Props) {
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-base font-semibold tracking-tight">
           <SlidersHorizontal className="h-4 w-4 text-primary" />
-          计算精度与负载
+          配置负载
           <InfoTip text="精度决定权重的每参数字节数；上下文与并发决定 KV 缓存总量。显存 = 权重 + KV + 运行时开销，三者共同决定最少设备数。" />
         </CardTitle>
         <CardDescription>

@@ -141,7 +141,7 @@ export default function ModelPicker({
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-1.5 text-base font-semibold tracking-tight">
           <Cpu className="h-4 w-4 text-primary" />
-          {isMulti ? '选择模型（多模型共享集群）' : '选择模型'}
+          选择模型
           <InfoTip text={isMulti ? '同一 GPU 类型下可多选多个模型组成集群（最多 6 个）；选中在线模型需网络，内置库可离线使用。' : '支持搜索内置模型库与 HuggingFace 在线模型（实时查询 config.json 自动推导架构）；选中在线模型需网络，内置库可离线使用。'} />
         </CardTitle>
         <CardAction>

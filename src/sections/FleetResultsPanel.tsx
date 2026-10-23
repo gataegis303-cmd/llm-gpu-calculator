@@ -67,7 +67,7 @@ export default function FleetResultsPanel({ gpu, entries, devices, deployMode, o
       <Card className="section-card">
         <ResultHeader
           icon={<Network className="h-4 w-4 text-primary" />}
-          title={`集群推演 — ${gpu.name} · ${entries.length} 个模型`}
+          title={`推演结果 — ${gpu.name} · ${entries.length} 个模型`}
           infoTip="多模型共享集群：按「权重保底 + 需求比例」把 N 张卡分给各模型，再逐模型推演。摘要表与合计均为典型档口径；三档明细见下方逐模型卡片。均为估算值。"
           subtitle={
             given
